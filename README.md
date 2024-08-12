@@ -24,7 +24,7 @@ Remote control your Redstone contraptions using WebSockets.
 This mod is inspired by a [YouTube video](https://www.youtube.com/watch?v=99Hd5Lh69T4) of Fundy, in which he briefly shows a custom Redstone block that can be controlled via a browser. This part of the video never got released as a standalone mod, so this is where Webstone comes in.
 
 ## Usage
-The mod opens up a [WebSocket](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API) server on port 4321, which then lets you connect with any WebSocket client (like [this one](https://github.com/festivaldev/webstone/tree/webui) - or the hosted client at [https://webstone.festival.tf](https://webstone.festival.tf)) to toggle registered blocks or change their output signal strength.  
+The mod opens up a [WebSocket](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API) server on port 4321, which then lets you connect with any WebSocket client (like [this one](https://github.com/festivaldev/webstone/tree/webui) - or the hosted client at [http://webstone.festival.tf](http://webstone.festival.tf)) to toggle registered blocks or change their output signal strength.  
 You can find the Webstone Remote Block under the "Redstone Blocks" tab in Creative Mode (no Survival recipe yet). To register it, right-click it with an empty hand (if successful, you'll see a message above your hotbar). To toggle it locally, right-click the block while sneaking.
 
 ## API Reference
