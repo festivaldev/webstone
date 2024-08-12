@@ -3,7 +3,7 @@ You're on the `webui` branch of Webstone, which contains the official Web UI for
 
 ![preview](.github/assets/preview.png)
 
-[Live instance](https://webstone.festival.tf)
+[Live instance](http://webstone.festival.tf)
 
 ## Usage
 When opening the Web UI, you'll be greeted with two input fields and a big "Connect to Minecraft" button.  
