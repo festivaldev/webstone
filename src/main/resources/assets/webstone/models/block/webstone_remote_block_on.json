@@ -1,0 +1,7 @@
+{
+  "parent": "webstone:block/webstone_remote_block",
+  "textures": {
+    "bottom": "webstone:block/webstone_block_back_on",
+    "front": "webstone:block/webstone_block_front_on"
+  }
+}

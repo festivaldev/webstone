@@ -1,0 +1,143 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "webstone:block/webstone_remote_block_on",
+        "y": 0
+      },
+      "when": {
+        "AND": [{ "facing": "north" }, { "powered": "true" }]
+      }
+    },
+    {
+      "apply": {
+        "model": "webstone:block/webstone_remote_block_on",
+        "y": 90
+      },
+      "when": {
+        "AND": [{ "facing": "east" }, { "powered": "true" }]
+      }
+    },
+    {
+      "apply": {
+        "model": "webstone:block/webstone_remote_block_on",
+        "y": 180
+      },
+      "when": {
+        "AND": [{ "facing": "south" }, { "powered": "true" }]
+      }
+    },
+    {
+      "apply": {
+        "model": "webstone:block/webstone_remote_block_on",
+        "y": 270
+      },
+      "when": {
+        "AND": [{ "facing": "west" }, { "powered": "true" }]
+      }
+    },
+    {
+      "apply": {
+        "model": "webstone:block/webstone_remote_block_on",
+        "x": 270
+      },
+      "when": {
+        "AND": [{ "facing": "up" }, { "powered": "true" }]
+      }
+    },
+    {
+      "apply": {
+        "model": "webstone:block/webstone_remote_block_on",
+        "x": 90
+      },
+      "when": {
+        "AND": [{ "facing": "down" }, { "powered": "true" }]
+      }
+    },
+
+    {
+      "apply": {
+        "model": "webstone:block/webstone_remote_block",
+        "y": 0
+      },
+      "when": {
+        "AND": [
+          { "facing": "north" },
+          {
+            "OR": [{ "powered": "false" }, { "powered": "true", "power": "0" }]
+          }
+        ]
+      }
+    },
+    {
+      "apply": {
+        "model": "webstone:block/webstone_remote_block",
+        "y": 90
+      },
+      "when": {
+        "AND": [
+          { "facing": "east" },
+          {
+            "OR": [{ "powered": "false" }, { "powered": "true", "power": "0" }]
+          }
+        ]
+      }
+    },
+    {
+      "apply": {
+        "model": "webstone:block/webstone_remote_block",
+        "y": 180
+      },
+      "when": {
+        "AND": [
+          { "facing": "south" },
+          {
+            "OR": [{ "powered": "false" }, { "powered": "true", "power": "0" }]
+          }
+        ]
+      }
+    },
+    {
+      "apply": {
+        "model": "webstone:block/webstone_remote_block",
+        "y": 270
+      },
+      "when": {
+        "AND": [
+          { "facing": "west" },
+          {
+            "OR": [{ "powered": "false" }, { "powered": "true", "power": "0" }]
+          }
+        ]
+      }
+    },
+    {
+      "apply": {
+        "model": "webstone:block/webstone_remote_block",
+        "x": 270
+      },
+      "when": {
+        "AND": [
+          { "facing": "up" },
+          {
+            "OR": [{ "powered": "false" }, { "powered": "true", "power": "0" }]
+          }
+        ]
+      }
+    },
+    {
+      "apply": {
+        "model": "webstone:block/webstone_remote_block",
+        "x": 90
+      },
+      "when": {
+        "AND": [
+          { "facing": "down" },
+          {
+            "OR": [{ "powered": "false" }, { "powered": "true", "power": "0" }]
+          }
+        ]
+      }
+    }
+  ]
+}
