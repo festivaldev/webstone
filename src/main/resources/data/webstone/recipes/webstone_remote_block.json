@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": ["C!C", "R#R", "GLG"],
+  "key": {
+    "#": { "item": "minecraft:observer" },
+    "C": { "item": "minecraft:copper_ingot" },
+    "!": { "item": "minecraft:lightning_rod" },
+    "R": { "item": "minecraft:redstone" },
+    "G": { "item": "minecraft:gold_ingot" },
+    "L": { "item": "minecraft:lever" }
+  },
+  "result": {
+    "item": "webstone:webstone_remote_block"
+  }
+}

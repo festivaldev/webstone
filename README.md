@@ -27,6 +27,10 @@ This mod is inspired by a [YouTube video](https://www.youtube.com/watch?v=99Hd5L
 The mod opens up a [WebSocket](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API) server on port 4321, which then lets you connect with any WebSocket client (like [this one](https://github.com/festivaldev/webstone/tree/webui) - or the hosted client at [http://webstone.festival.tf](http://webstone.festival.tf)) to toggle registered blocks or change their output signal strength.  
 You can find the Webstone Remote Block under the "Redstone Blocks" tab in Creative Mode (no Survival recipe yet). To register it, right-click it with an empty hand (if successful, you'll see a message above your hotbar). To toggle it locally, right-click the block while sneaking.
 
+### Crafting Recipe
+
+![crafting-webstone-remote-block](.github/assets/crafting-webstone-remote-block.png)
+
 ## API Reference
 When connecting to the WebSocket server, the connecting client receives the list of currently registered blocks, including their display name, the current powered state and the output signal strength:
 
