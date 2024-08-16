@@ -24,7 +24,7 @@ const BlockButton = ({
     onClick={() => setBlockState(block.blockId, !block.powered)}
   >
     <Card className="h-full w-full bg-transparent">
-      <CardHeader className="flex justify-end gap-0.5 md:gap-1">
+      <CardHeader className="flex justify-end gap-0.5 pb-0 md:gap-1">
         <Tooltip showArrow placement="bottom" closeDelay={0} content="Rename">
           <Button
             className="size-8 min-w-0 md:size-10"
@@ -58,13 +58,13 @@ const BlockButton = ({
         </Tooltip>
       </CardHeader>
 
-      <CardBody className="flex justify-center text-center">
+      <CardBody className="flex justify-center py-2 text-center">
         <Tooltip showArrow placement="bottom" closeDelay={0} content={block.name} hidden={block.name.length < 20}>
           <span className="overflow-hidden overflow-ellipsis text-xl font-semibold">{block.name}</span>
         </Tooltip>
       </CardBody>
 
-      <CardFooter>
+      <CardFooter className="pt-0">
         <Slider
           color="danger"
           size="md"
