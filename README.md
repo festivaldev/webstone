@@ -10,7 +10,7 @@
         <img src="https://img.shields.io/github/license/festivaldev/webstone?style=flat&color=900c3f">
     </a>
 	<a href="https://www.curseforge.com/minecraft/mc-mods/webstone">
-        <img src="https://img.shields.io/curseforge/dt/238222?logo=CurseForge&label=&suffix=%20&color=242629&labelColor=f16436&logoColor=e9e9e9">
+        <img src="https://img.shields.io/curseforge/dt/1082358?logo=CurseForge&label=&suffix=%20&color=242629&labelColor=f16436&logoColor=e9e9e9">
     </a>
     <a href="https://modrinth.com/mod/webstone">
         <img src="https://img.shields.io/modrinth/dt/webstone?logo=modrinth&label=&suffix=%20&color=242629&labelColor=5ca424&logoColor=1c1c1c">
@@ -29,12 +29,14 @@ You can find the Webstone Remote Block under the "Redstone Blocks" tab in Creati
 
 ### Crafting Recipe
 
+Starting with Webstone 1.0.1, the Webstone Remote Block can be crafted outside of Creative:
+
 ![crafting-webstone-remote-block](.github/assets/crafting-webstone-remote-block.png)
 
 ## API Reference
 When connecting to the WebSocket server, the connecting client receives the list of currently registered blocks, including their display name, the current powered state and the output signal strength:
 
-```json
+```jsonc
 {
     "type": "block_list",
     "data": [
@@ -52,7 +54,7 @@ Every time a block state is changed, it will be broadcast to every connected cli
 
 #### When a block's powered state has changed
 
-```json
+```jsonc
 {
     "type": "block_state",
     "data": {
@@ -64,7 +66,7 @@ Every time a block state is changed, it will be broadcast to every connected cli
 
 #### When a block's output signal strength has changed.
 
-```json
+```jsonc
 {
     "type": "block_power",
     "data": {
@@ -78,7 +80,7 @@ Clients can send the following payloads to the server:
 
 #### Set a block's powered state:
 
-```json
+```jsonc
 {
     "type": "block_state",
     "data": {
@@ -92,7 +94,7 @@ If successful, the server forwards the payload to all clients.
 
 #### Set a block's output signal strength:
 
-```json
+```jsonc
 {
     "type": "block_power",
     "data": {
@@ -106,7 +108,7 @@ If successful, the server forwards the payload to all clients.
 
 #### Set the display name of a block:
 
-```json
+```jsonc
 {
     "type": "rename_block",
     "data": {
@@ -120,7 +122,7 @@ If successful, the server broadcasts the updated list of registered blocks to al
 
 #### Delete a block from the Web UI:
 
-```json
+```jsonc
 {
     "type": "unregister_block",
     "data": {
