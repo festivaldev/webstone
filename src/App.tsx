@@ -217,6 +217,12 @@ const App = (): React.ReactNode => {
                   >
                     Switch to HTTP
                   </a>
+
+                  <small className="mt-2 text-center text-xs text-white/40">
+                    Your browser may display a
+                    <br />
+                    disclaimer that this site is insecure.
+                  </small>
                 </>
               }
               hidden={!isSecureConnection}
