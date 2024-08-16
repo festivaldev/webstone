@@ -10,6 +10,16 @@ export default {
       },
     },
   },
-  darkMode: "class",
-  plugins: [nextui()]
+  darkMode: 'class',
+  plugins: [
+    nextui({
+      themes: {
+        dark: {
+          colors: {
+            focus: 'rgba(0, 0, 0, 0)',
+          },
+        },
+      },
+    }),
+  ],
 };

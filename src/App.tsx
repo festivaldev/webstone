@@ -1,21 +1,24 @@
-import { PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
-import { Slider } from '@nextui-org/react';
-import { useMemo, useState } from 'react';
-import classNames from './utilities/classNames';
+import { BlockButton, Header } from '@/components';
+import classNames from '@/utilities/classNames';
+import { XCircleIcon } from '@heroicons/react/24/outline';
+import { Button, Checkbox, Input, Tooltip } from '@nextui-org/react';
+import { useEffect, useMemo, useState } from 'react';
 
-interface Block {
-  blockId: string;
-  name: string;
-  powered: boolean;
-  power: number;
-}
+const DEFAULT_HOSTNAME = '127.0.0.1';
+const DEFAULT_PORT = 4321;
 
-const App = () => {
+const App = (): React.ReactNode => {
+  const isSecureConnection = useMemo(() => location.protocol.startsWith('https'), []);
+
   const [hostname, setHostname] = useState<string | undefined>(undefined);
   const [port, setPort] = useState<number | undefined>(undefined);
+  const [useSecureSocket, setUseSecureSocket] = useState<boolean>(isSecureConnection);
 
   const [socket, setSocket] = useState<WebSocket | null>(null);
-  const [connected, setConnected] = useState<boolean>(false);
+  const [isConnecting, setConnecting] = useState<boolean>(false);
+  const [isConnected, setConnected] = useState<boolean>(false);
+  const [connectError, setConnectError] = useState<string | undefined>(undefined);
+
   const [blocks, setBlocks] = useState<Block[]>([
     // {
     //   blockId: '0',
@@ -25,12 +28,33 @@ const App = () => {
     // },
   ]);
 
-  const connecting = useMemo(() => socket != null && !connected, [socket, connected]);
+  useEffect(() => {
+    setHostname(() => localStorage.getItem('hostname') ?? undefined);
+    setPort(() => (localStorage.getItem('port') ? Number(localStorage.getItem('port')) : undefined));
+  }, []);
 
-  const connect = (hostname: string = '127.0.0.1', port: number = 4321) => {
-    const _socket = new WebSocket(`ws://${hostname}:${port}`);
+  const trimmedHostname = useMemo(() => (hostname?.trim().length ? hostname?.trim() : undefined), [hostname]);
+  const trimmedPort = useMemo(() => (port ? String(port).trim() : undefined), [port]);
 
-    // Connection opened
+  const connect = () => {
+    const connectUri = `${useSecureSocket ? 'wss' : 'ws'}://${trimmedHostname ?? DEFAULT_HOSTNAME}:${trimmedPort ?? DEFAULT_PORT}`;
+    const _socket = new WebSocket(connectUri);
+
+    if (trimmedHostname) {
+      localStorage.setItem('hostname', trimmedHostname);
+    } else {
+      localStorage.removeItem('hostname');
+    }
+
+    if (trimmedPort) {
+      localStorage.setItem('port', trimmedPort);
+    } else {
+      localStorage.removeItem('port');
+    }
+
+    setConnectError(() => undefined);
+    setConnecting(() => true);
+
     _socket.addEventListener('open', () => {
       console.log('Connection opened');
       setConnected(() => true);
@@ -39,17 +63,18 @@ const App = () => {
     _socket.addEventListener('close', () => {
       console.log('Connection closed');
       setSocket(() => null);
+
+      setConnecting(() => false);
       setConnected(() => false);
     });
 
-    _socket.addEventListener('error', () => {
-      alert(`Failed to connect to ${hostname}:${port}!`);
+    _socket.addEventListener('error', (_) => {
+      setConnectError(() => `Failed to connect to ${connectUri}!`);
     });
 
     _socket.addEventListener('message', ({ data: message }) => {
       try {
         const data = JSON.parse(message);
-        // console.log(data);
 
         switch (data.type) {
           case 'block_list':
@@ -77,12 +102,16 @@ const App = () => {
           default:
             break;
         }
-      } catch {
-        //
+      } catch (error) {
+        console.error('Failed to parse JSON message', error);
       }
     });
 
     setSocket(() => _socket);
+  };
+
+  const disconnect = () => {
+    socket?.close();
   };
 
   const setBlockState = (blockId: string, powered: boolean): void => {
@@ -117,7 +146,7 @@ const App = () => {
           type: 'rename_block',
           data: {
             blockId,
-            name: blockName.trim(),
+            name: blockName.substring(0, 64).trim(),
           },
         }),
       );
@@ -137,38 +166,93 @@ const App = () => {
     }
   };
 
-  if (!connected)
-    return (
-      <div className="absolute left-0 top-0 flex h-full w-full flex-col items-center justify-center space-y-4">
-        <div className="space-x-3">
-          <input
-            type="text"
-            placeholder="127.0.0.1"
-            value={hostname ?? ''}
-            onChange={(e) => setHostname(() => e.target.value)}
-            className="rounded-lg border border-slate-100/30 bg-transparent px-3 py-2 focus:bg-white focus:text-black focus:outline-none"
-          />
-          <input
-            type="number"
-            placeholder="4321"
-            value={port ?? ''}
-            onChange={(e) => !isNaN(parseInt(e.target.value)) && setPort(() => Number(e.target.value))}
-            className="w-16 rounded-lg border border-slate-100/30 bg-transparent px-3 py-2 [appearance:textfield] focus:bg-white focus:text-black focus:outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-          />
-        </div>
-        <button
-          className="rounded-lg bg-sky-700 px-4 py-2 disabled:opacity-40"
-          disabled={connecting}
-          onClick={() => connect(hostname, port)}
-        >
-          {connecting ? 'Connecting...' : 'Connect to Minecraft'}
-        </button>
-      </div>
-    );
-
   return (
-    <div className="h-full w-full p-4">
-      {blocks.length == 0 && (
+    <div className="max-h-full w-full overflow-y-scroll p-4 pt-20">
+      <Header isConnected disconnect={disconnect} />
+
+      {!isConnected && (
+        <div className="absolute left-0 top-0 flex h-full w-full flex-col items-center justify-center space-y-4">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              connect();
+            }}
+            className="space-y-4"
+          >
+            <div className="flex w-full flex-nowrap gap-4 md:flex-nowrap">
+              <Input
+                type="text"
+                label="Hostname / IP address"
+                placeholder={DEFAULT_HOSTNAME}
+                value={hostname ?? ''}
+                isDisabled={isConnecting}
+                onChange={(e) => setHostname(() => e.target.value)}
+              />
+
+              <Input
+                type="string"
+                label="Port"
+                placeholder={`${DEFAULT_PORT}`}
+                value={String(port ?? '')}
+                max={65535}
+                isDisabled={isConnecting}
+                className="w-24 text-center"
+                onChange={(e) => !isNaN(parseInt(e.target.value, 10)) && setPort(() => Number(e.target.value))}
+              />
+            </div>
+
+            <Tooltip
+              showArrow
+              closeDelay={0}
+              content={
+                <span className="text-center">
+                  You can't connect to insecure WebSockets
+                  <br />
+                  because this site is using HTTPS.
+                </span>
+              }
+              hidden={!isSecureConnection}
+            >
+              <div>
+                <Checkbox
+                  isSelected={useSecureSocket}
+                  isDisabled={isSecureConnection || isConnecting}
+                  onChange={(e) => setUseSecureSocket(e.target.checked)}
+                  disableAnimation={isSecureConnection}
+                >
+                  Use Secure WebSocket
+                </Checkbox>
+              </div>
+            </Tooltip>
+
+            <div className="flex justify-center gap-4">
+              <Button
+                color="primary"
+                isDisabled={isConnecting}
+                isLoading={isConnecting}
+                type="submit"
+                className="flex-1"
+              >
+                {isConnecting ? `Connecting...` : 'Connect to Minecraft'}
+              </Button>
+
+              <Button isIconOnly variant="flat" isDisabled={!isConnecting} onClick={disconnect}>
+                <XCircleIcon className="size-6 text-danger" />
+              </Button>
+            </div>
+
+            <span
+              className={classNames('block text-center text-xs text-danger', {
+                invisible: !connectError && false,
+              })}
+            >
+              {connectError || <>&nbsp;</>}
+            </span>
+          </form>
+        </div>
+      )}
+
+      {isConnected && blocks.length === 0 && (
         <div className="absolute left-0 top-0 flex h-full w-full flex-col items-center justify-center space-y-4">
           <p className="text-center text-xl text-gray-500">
             No Webstone blocks registered.
@@ -177,65 +261,18 @@ const App = () => {
           </p>
         </div>
       )}
-      {blocks.length > 0 && (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 2xl:grid-cols-8 3xl:grid-cols-12">
+
+      {isConnected && blocks.length > 0 && (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 2xl:grid-cols-8">
           {blocks.map((block) => (
-            <div
+            <BlockButton
               key={block.blockId}
-              className={classNames(
-                'relative flex aspect-square select-none flex-col rounded-lg bg-slate-700 p-3 text-center transition-colors',
-                {
-                  'bg-green-700': block.powered,
-                },
-              )}
-            >
-              <div className="flex justify-end gap-3">
-                <button
-                  className="rounded-md bg-slate-100/10 p-2 transition-colors duration-100 hover:bg-sky-600"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    renameBlock(block.blockId);
-                  }}
-                >
-                  <PencilIcon className="size-5" />
-                </button>
-                <button
-                  className="rounded-md bg-slate-100/10 p-2 transition-colors duration-100 hover:bg-sky-600"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    unregisterBlock(block.blockId);
-                  }}
-                >
-                  <TrashIcon className="size-5" />
-                </button>
-              </div>
-
-              <div
-                className="flex flex-1 cursor-pointer items-center justify-center"
-                onClick={() => setBlockState(block.blockId, !block.powered)}
-              >
-                <span className="my-2 text-xl font-semibold">{block.name}</span>
-              </div>
-
-              <div>
-                <Slider
-                  color="danger"
-                  size="md"
-                  step={1}
-                  label="Strength"
-                  maxValue={15}
-                  minValue={0}
-                  defaultValue={15}
-                  value={block.power}
-                  // onChange={(value) =>
-                  //   setBlocks((blocks) =>
-                  //     blocks.map((_) => (_.blockId === block.blockId ? { ..._, power: value as number } : _)),
-                  //   )
-                  // }
-                  onChange={(value) => setBlockPower(block.blockId, value as number)}
-                />
-              </div>
-            </div>
+              block={block}
+              setBlockState={setBlockState}
+              setBlockPower={setBlockPower}
+              renameBlock={renameBlock}
+              unregisterBlock={unregisterBlock}
+            />
           ))}
         </div>
       )}
