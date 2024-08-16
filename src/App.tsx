@@ -1,7 +1,7 @@
 import { BlockButton, Header } from '@/components';
 import classNames from '@/utilities/classNames';
 import { XCircleIcon } from '@heroicons/react/24/outline';
-import { Button, Checkbox, Input, Tooltip } from '@nextui-org/react';
+import { Button, Checkbox, Input, Spinner, Tooltip } from '@nextui-org/react';
 import { useEffect, useMemo, useState } from 'react';
 
 const DEFAULT_HOSTNAME = '127.0.0.1';
@@ -19,14 +19,7 @@ const App = (): React.ReactNode => {
   const [isConnected, setConnected] = useState<boolean>(false);
   const [connectError, setConnectError] = useState<string | undefined>(undefined);
 
-  const [blocks, setBlocks] = useState<Block[]>([
-    // {
-    //   blockId: '0',
-    //   name: 'debug',
-    //   power: 15,
-    //   powered: true,
-    // },
-  ]);
+  const [blocks, setBlocks] = useState<Block[] | undefined>(undefined);
 
   useEffect(() => {
     setHostname(() => localStorage.getItem('hostname') ?? undefined);
@@ -37,6 +30,8 @@ const App = (): React.ReactNode => {
   const trimmedPort = useMemo(() => (port ? String(port).trim() : undefined), [port]);
 
   const connect = () => {
+    setBlocks(() => undefined);
+
     const connectUri = `${isSecureConnection || useSecureSocket ? 'wss' : 'ws'}://${trimmedHostname ?? DEFAULT_HOSTNAME}:${trimmedPort ?? DEFAULT_PORT}`;
     const _socket = new WebSocket(connectUri);
 
@@ -82,21 +77,23 @@ const App = (): React.ReactNode => {
             break;
           case 'block_state':
             setBlocks((blocks) =>
-              blocks.map((block) =>
+              blocks?.map((block) =>
                 block.blockId === data.data.blockId ? { ...block, powered: data.data.powered } : block,
               ),
             );
             break;
           case 'block_power':
             setBlocks((blocks) =>
-              blocks.map((block) =>
+              blocks?.map((block) =>
                 block.blockId === data.data.blockId ? { ...block, power: data.data.power } : block,
               ),
             );
             break;
           case 'rename_block':
             setBlocks((blocks) =>
-              blocks.map((block) => (block.blockId === data.data.blockId ? { ...block, name: data.data.name } : block)),
+              blocks?.map((block) =>
+                block.blockId === data.data.blockId ? { ...block, name: data.data.name } : block,
+              ),
             );
             break;
           default:
@@ -167,7 +164,7 @@ const App = (): React.ReactNode => {
   };
 
   return (
-    <div className="max-h-full w-full overflow-y-scroll p-4 pt-20">
+    <div className="p-4 pt-20">
       <Header isConnected disconnect={disconnect} />
 
       {!isConnected && (
@@ -266,29 +263,41 @@ const App = (): React.ReactNode => {
         </div>
       )}
 
-      {isConnected && blocks.length === 0 && (
-        <div className="absolute left-0 top-0 flex h-full w-full flex-col items-center justify-center space-y-4">
-          <p className="text-center text-xl text-gray-500">
-            No Webstone blocks registered.
-            <br />
-            <span className="text-base">Place a Webstone block and right-click it with an empty hand to register.</span>
-          </p>
-        </div>
-      )}
+      {isConnected && (
+        <>
+          {!blocks && (
+            <div className="absolute left-0 top-0 flex h-full w-full flex-col items-center justify-center space-y-4">
+              <Spinner size="lg" />
+            </div>
+          )}
 
-      {isConnected && blocks.length > 0 && (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 2xl:grid-cols-8">
-          {blocks.map((block) => (
-            <BlockButton
-              key={block.blockId}
-              block={block}
-              setBlockState={setBlockState}
-              setBlockPower={setBlockPower}
-              renameBlock={renameBlock}
-              unregisterBlock={unregisterBlock}
-            />
-          ))}
-        </div>
+          {blocks && blocks.length === 0 && (
+            <div className="absolute left-0 top-0 flex h-full w-full flex-col items-center justify-center space-y-4">
+              <p className="text-center text-xl text-gray-500">
+                No Webstone blocks registered.
+                <br />
+                <span className="text-base">
+                  Place a Webstone block and right-click it with an empty hand to register.
+                </span>
+              </p>
+            </div>
+          )}
+
+          {blocks && blocks.length > 0 && (
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 2xl:grid-cols-8">
+              {blocks.map((block) => (
+                <BlockButton
+                  key={block.blockId}
+                  block={block}
+                  setBlockState={setBlockState}
+                  setBlockPower={setBlockPower}
+                  renameBlock={renameBlock}
+                  unregisterBlock={unregisterBlock}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
