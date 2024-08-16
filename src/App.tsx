@@ -37,7 +37,7 @@ const App = (): React.ReactNode => {
   const trimmedPort = useMemo(() => (port ? String(port).trim() : undefined), [port]);
 
   const connect = () => {
-    const connectUri = `${useSecureSocket ? 'wss' : 'ws'}://${trimmedHostname ?? DEFAULT_HOSTNAME}:${trimmedPort ?? DEFAULT_PORT}`;
+    const connectUri = `${isSecureConnection || useSecureSocket ? 'wss' : 'ws'}://${trimmedHostname ?? DEFAULT_HOSTNAME}:${trimmedPort ?? DEFAULT_PORT}`;
     const _socket = new WebSocket(connectUri);
 
     if (trimmedHostname) {
@@ -203,19 +203,27 @@ const App = (): React.ReactNode => {
 
             <Tooltip
               showArrow
-              closeDelay={0}
+              closeDelay={300}
               content={
-                <span className="text-center">
-                  You can't connect to insecure WebSockets
-                  <br />
-                  because this site is using HTTPS.
-                </span>
+                <>
+                  <p className="text-center">
+                    You can't connect to insecure WebSockets
+                    <br />
+                    because this site is using HTTPS.
+                  </p>
+                  <a
+                    className="mt-2 text-center text-primary hover:underline"
+                    href={`http://${location.href.replace(/http(s)?:\/\//, '')}`}
+                  >
+                    Switch to HTTP
+                  </a>
+                </>
               }
               hidden={!isSecureConnection}
             >
               <div>
                 <Checkbox
-                  isSelected={useSecureSocket}
+                  isSelected={isSecureConnection || useSecureSocket}
                   isDisabled={isSecureConnection || isConnecting}
                   onChange={(e) => setUseSecureSocket(e.target.checked)}
                   disableAnimation={isSecureConnection}
