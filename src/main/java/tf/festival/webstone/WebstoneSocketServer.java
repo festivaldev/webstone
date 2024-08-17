@@ -73,7 +73,7 @@ public class WebstoneSocketServer extends WebSocketServer {
                     JsonObject block = data.getAsJsonObject();
 
                     UUID blockId = UUID.fromString(block.get("blockId").getAsString());
-                    String name = block.get("name").getAsString().substring(0, 64).trim();
+                    String name = block.get("name").getAsString().substring(0, Math.min(block.get("name").getAsString().length(), 64)).trim();
 
                     Webstone.renameBlock(blockId, name);
                     break;
