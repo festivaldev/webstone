@@ -4,12 +4,39 @@ import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
+import net.minecraftforge.fml.loading.FMLPaths;
+import org.apache.commons.codec.binary.Hex;
 import org.java_websocket.WebSocket;
+import org.java_websocket.drafts.Draft;
+import org.java_websocket.exceptions.InvalidDataException;
+import org.java_websocket.framing.CloseFrame;
 import org.java_websocket.handshake.ClientHandshake;
+import org.java_websocket.handshake.ServerHandshakeBuilder;
+import org.java_websocket.server.DefaultSSLWebSocketServerFactory;
 import org.java_websocket.server.WebSocketServer;
 
+import javax.net.ssl.KeyManager;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.xml.bind.DatatypeConverter;
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Paths;
+import java.security.KeyFactory;
+import java.security.KeyStore;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.UUID;
 
 public class WebstoneSocketServer extends WebSocketServer {
@@ -17,11 +44,35 @@ public class WebstoneSocketServer extends WebSocketServer {
 
     public WebstoneSocketServer(int port) throws UnknownHostException {
         super(new InetSocketAddress(port));
+
+        if (WebstoneConfig.SECURE_WEBSOCKET.get()) {
+            SSLContext context = getContext();
+            if (context != null) {
+                this.setWebSocketFactory(new DefaultSSLWebSocketServerFactory(context));
+            }
+        }
+    }
+
+    @Override
+    public ServerHandshakeBuilder onWebsocketHandshakeReceivedAsServer(WebSocket conn, Draft draft, ClientHandshake request) throws InvalidDataException {
+        ServerHandshakeBuilder builder = super.onWebsocketHandshakeReceivedAsServer(conn, draft, request);
+
+        if (!WebstoneConfig.PASSPHRASE.get().isEmpty()) {
+            try {
+                if (!request.hasFieldValue("Sec-WebSocket-Protocol") || !(new String(Hex.decodeHex(request.getFieldValue("Sec-WebSocket-Protocol").toCharArray()), StandardCharsets.UTF_8)).equals(WebstoneConfig.PASSPHRASE.get())) {
+                    throw new InvalidDataException(CloseFrame.POLICY_VALIDATION, "Not accepted!");
+                }
+            } catch (Exception e) {
+                throw new InvalidDataException(CloseFrame.POLICY_VALIDATION, "Not accepted!");
+            }
+        }
+
+        return builder;
     }
 
     @Override
     public void onStart() {
-        Webstone.LOGGER.info(String.format("Webstone WebSocket server started on port %d", this.getPort()));
+        Webstone.LOGGER.info(String.format("Webstone WebSocket server started on port %d. (Secure: %b)", this.getPort(), WebstoneConfig.SECURE_WEBSOCKET.get()));
         setConnectionLostTimeout(0);
         setConnectionLostTimeout(100);
     }
@@ -127,5 +178,74 @@ public class WebstoneSocketServer extends WebSocketServer {
         message.add("data", gson.toJsonTree(object));
 
         return message.toString();
+    }
+
+    private static SSLContext getContext() {
+        SSLContext context;
+        String password = WebstoneConfig.CERTIFICATE_KEY_PASS.get();
+        try {
+            context = SSLContext.getInstance("TLS");
+
+            byte[] certBytes = parseDERFromPEM(getBytes(new File(Paths.get(FMLPaths.GAMEDIR.get().toString(), "data", WebstoneConfig.CERTIFICATE_FILENAME.get()).toString())),
+                    "-----BEGIN CERTIFICATE-----", "-----END CERTIFICATE-----");
+            byte[] keyBytes = parseDERFromPEM(
+                    getBytes(new File(Paths.get(FMLPaths.GAMEDIR.get().toString(), "data", WebstoneConfig.CERTIFICATE_KEY_FILENAME.get()).toString())),
+                    "-----BEGIN PRIVATE KEY-----", "-----END PRIVATE KEY-----");
+
+            X509Certificate cert = generateCertificateFromDER(certBytes);
+            RSAPrivateKey key = generatePrivateKeyFromDER(keyBytes);
+
+            KeyStore keystore = KeyStore.getInstance("JKS");
+            keystore.load(null);
+            keystore.setCertificateEntry("cert-alias", cert);
+            keystore.setKeyEntry("key-alias", key, password.toCharArray(), new Certificate[]{cert});
+
+            KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
+            kmf.init(keystore, password.toCharArray());
+
+            KeyManager[] km = kmf.getKeyManagers();
+
+            context.init(km, null, null);
+        } catch (Exception e) {
+            context = null;
+        }
+        return context;
+    }
+
+    private static byte[] parseDERFromPEM(byte[] pem, String beginDelimiter, String endDelimiter) {
+        String data = new String(pem);
+        String[] tokens = data.split(beginDelimiter);
+        tokens = tokens[1].split(endDelimiter);
+        return DatatypeConverter.parseBase64Binary(tokens[0]);
+    }
+
+    private static RSAPrivateKey generatePrivateKeyFromDER(byte[] keyBytes)
+            throws InvalidKeySpecException, NoSuchAlgorithmException {
+        PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(keyBytes);
+
+        KeyFactory factory = KeyFactory.getInstance("RSA");
+
+        return (RSAPrivateKey) factory.generatePrivate(spec);
+    }
+
+    private static X509Certificate generateCertificateFromDER(byte[] certBytes)
+            throws CertificateException {
+        CertificateFactory factory = CertificateFactory.getInstance("X.509");
+
+        return (X509Certificate) factory.generateCertificate(new ByteArrayInputStream(certBytes));
+    }
+
+    private static byte[] getBytes(File file) {
+        byte[] bytesArray = new byte[(int) file.length()];
+
+        FileInputStream fis = null;
+        try {
+            fis = new FileInputStream(file);
+            fis.read(bytesArray); //read file into bytes[]
+            fis.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return bytesArray;
     }
 }

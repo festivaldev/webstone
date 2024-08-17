@@ -153,6 +153,9 @@ dependencies {
     implementation 'com.google.code.gson:gson:2.11.0'
     minecraftLibrary 'com.google.code.gson:gson:2.11.0'
 
+    implementation 'com.sun.xml.bind:jaxb-impl:2.3.9'
+    minecraftLibrary 'com.sun.xml.bind:jaxb-impl:2.3.9'
+
     jarJar(group: 'org.java-websocket', name: 'Java-WebSocket', version: '[1.5.7,1.6.0]')
 //    jarJar(group: 'com.google.code.gson', name: 'gson', version: '[2.11.0,2.12.0]')
 }
