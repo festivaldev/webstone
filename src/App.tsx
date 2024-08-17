@@ -2,6 +2,7 @@ import { BlockButton, Header } from '@/components';
 import classNames from '@/utilities/classNames';
 import { XCircleIcon } from '@heroicons/react/24/outline';
 import { Button, Checkbox, Input, Spinner, Tooltip } from '@nextui-org/react';
+import { Buffer } from 'buffer';
 import { useEffect, useMemo, useState } from 'react';
 
 const DEFAULT_HOSTNAME = '127.0.0.1';
@@ -12,6 +13,7 @@ const App = (): React.ReactNode => {
 
   const [hostname, setHostname] = useState<string | undefined>(undefined);
   const [port, setPort] = useState<number | undefined>(undefined);
+  const [passphrase, setPassphrase] = useState<string | undefined>(undefined);
   const [useSecureSocket, setUseSecureSocket] = useState<boolean>(isSecureConnection);
 
   const [socket, setSocket] = useState<WebSocket | null>(null);
@@ -33,7 +35,10 @@ const App = (): React.ReactNode => {
     setBlocks(() => undefined);
 
     const connectUri = `${isSecureConnection || useSecureSocket ? 'wss' : 'ws'}://${trimmedHostname ?? DEFAULT_HOSTNAME}:${trimmedPort ?? DEFAULT_PORT}`;
-    const _socket = new WebSocket(connectUri);
+    const _socket = new WebSocket(
+      connectUri,
+      passphrase ? [Buffer.from(passphrase, 'utf8').toString('hex')] : undefined,
+    );
 
     if (trimmedHostname) {
       localStorage.setItem('hostname', trimmedHostname);
@@ -198,6 +203,17 @@ const App = (): React.ReactNode => {
               />
             </div>
 
+            <div className="flex w-full flex-nowrap gap-4 md:flex-nowrap">
+              <Input
+                type="password"
+                label="Passphrase"
+                placeholder="Optional"
+                value={passphrase ?? ''}
+                isDisabled={isConnecting}
+                onChange={(e) => setPassphrase(() => e.target.value)}
+              />
+            </div>
+
             <Tooltip
               showArrow
               closeDelay={300}
@@ -284,7 +300,7 @@ const App = (): React.ReactNode => {
           )}
 
           {blocks && blocks.length > 0 && (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 2xl:grid-cols-8">
+            <div className="4xl:grid-cols-12 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 2xl:grid-cols-8">
               {blocks.map((block) => (
                 <BlockButton
                   key={block.blockId}
