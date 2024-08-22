@@ -1,5 +1,6 @@
 package tf.festival.webstone;
 
+import at.favre.lib.crypto.bcrypt.BCrypt;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -59,7 +60,11 @@ public class WebstoneSocketServer extends WebSocketServer {
 
         if (!WebstoneConfig.PASSPHRASE.get().isEmpty()) {
             try {
-                if (!request.hasFieldValue("Sec-WebSocket-Protocol") || !(new String(Hex.decodeHex(request.getFieldValue("Sec-WebSocket-Protocol").toCharArray()), StandardCharsets.UTF_8)).equals(WebstoneConfig.PASSPHRASE.get())) {
+                if (!request.hasFieldValue("Sec-WebSocket-Protocol")
+                    || !BCrypt.verifyer().verify(
+                        new String(Hex.decodeHex(request.getFieldValue("Sec-WebSocket-Protocol").toCharArray()), StandardCharsets.UTF_8).toCharArray(),
+                        WebstoneConfig.PASSPHRASE.get()
+                    ).verified) {
                     throw new InvalidDataException(CloseFrame.POLICY_VALIDATION, "Not accepted!");
                 }
             } catch (Exception e) {
@@ -180,6 +185,7 @@ public class WebstoneSocketServer extends WebSocketServer {
         return message.toString();
     }
 
+    //region SSL Stuff
     private static SSLContext getContext() {
         SSLContext context;
         String password = WebstoneConfig.CERTIFICATE_KEY_PASS.get();
@@ -248,4 +254,5 @@ public class WebstoneSocketServer extends WebSocketServer {
         }
         return bytesArray;
     }
+    //endregion
 }

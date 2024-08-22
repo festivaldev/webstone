@@ -40,7 +40,7 @@ public class WebstoneRegisteredBlock {
 
     public void setPowered(boolean powered) {
         this.powered = powered;
-        blockEntity.setPowered((powered));
+        this.blockEntity.setPowered((powered));
     }
 
     public int getPower() {
@@ -49,7 +49,7 @@ public class WebstoneRegisteredBlock {
 
     public void setPower(int power) {
         this.power = Math.min(Math.max(power, 0), 15);
-        blockEntity.setPower(this.power);
+        this.blockEntity.setPower(this.power);
     }
 
     public WebstoneRemoteBlock getBlock() {
