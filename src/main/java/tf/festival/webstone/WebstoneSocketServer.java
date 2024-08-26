@@ -215,6 +215,7 @@ public class WebstoneSocketServer extends WebSocketServer {
         }
     }
 
+    // region Broadcasts
     public void broadcastBlockGroupList() {
         broadcast(encodeJson("block_groups", Webstone.getWorldData().getBlockGroups()));
     }
@@ -223,21 +224,14 @@ public class WebstoneSocketServer extends WebSocketServer {
         broadcast(encodeJson("block_list", Webstone.getWorldData().getBlocks()));
     }
 
-    public void broadcastUpdatedBlockState(UUID blockId, boolean powered) {
-        JsonObject message = new JsonObject();
-        message.addProperty("blockId", blockId.toString());
-        message.addProperty("powered", powered);
-
-        broadcast(encodeJson("block_state", message));
+    public void broadcastBlockUpdated(WebstoneBlock block) {
+        broadcast(encodeJson("block_updated", block));
     }
 
-    public void broadcastUpdatedBlockPower(UUID blockId, int power) {
-        JsonObject message = new JsonObject();
-        message.addProperty("blockId", blockId.toString());
-        message.addProperty("power", power);
-
-        broadcast(encodeJson("block_power", message));
+    public void broadcastBlockGroupUpdated(WebstoneBlockGroup blockGroup) {
+        broadcast(encodeJson("group_updated", blockGroup));
     }
+    // endregion
 
     private String encodeJson(String type, Object object) {
         JsonObject message = new JsonObject();

@@ -150,7 +150,7 @@ public class Webstone {
                 block.setPowered(powered);
 
                 worldData.setDirty();
-                SOCKET_SERVER.broadcastUpdatedBlockState(blockId, powered);
+                SOCKET_SERVER.broadcastBlockUpdated(block);
             } else if (blockEntity != null) {
                 blockEntity.setPowered(powered);
             }
@@ -165,7 +165,7 @@ public class Webstone {
                 block.setPower(power);
 
                 worldData.setDirty();
-                SOCKET_SERVER.broadcastUpdatedBlockPower(blockId, power);
+                SOCKET_SERVER.broadcastBlockUpdated(block);
             }
         }
     }
@@ -178,7 +178,7 @@ public class Webstone {
                 block.setName(name);
 
                 worldData.setDirty();
-                SOCKET_SERVER.broadcastBlockList();
+                SOCKET_SERVER.broadcastBlockUpdated(block);
             }
         }
     }
@@ -195,17 +195,20 @@ public class Webstone {
             if (block != null) {
                 if (block.getGroupId() != null && (Object) worldData.getBlockGroupById(block.getGroupId()) instanceof WebstoneBlockGroup _blockGroup) {
                     _blockGroup.removeBlock(block);
+
+                    SOCKET_SERVER.broadcastBlockGroupUpdated(_blockGroup);
                     worldData.setDirty();
                 }
 
                 if (blockGroup != null) {
                     blockGroup.addBlock(block);
+
+                    SOCKET_SERVER.broadcastBlockGroupUpdated(blockGroup);
                     worldData.setDirty();
                 }
 
                 if (worldData.isDirty()) {
-                    SOCKET_SERVER.broadcastBlockGroupList();
-                    SOCKET_SERVER.broadcastBlockList();
+                    SOCKET_SERVER.broadcastBlockUpdated(block);
                 }
             }
         }
@@ -219,7 +222,8 @@ public class Webstone {
                 if (block.getGroupId() != null && (Object) worldData.getBlockGroupById(block.getGroupId()) instanceof WebstoneBlockGroup blockGroup) {
                     if (blockGroup.moveBlock(block, newIndex)) {
                         worldData.setDirty();
-                        SOCKET_SERVER.broadcastBlockGroupList();
+                        // SOCKET_SERVER.broadcastBlockGroupList();
+                        SOCKET_SERVER.broadcastBlockGroupUpdated(blockGroup);
                     }
                 }
             }
@@ -245,7 +249,7 @@ public class Webstone {
                 blockGroup.setName(name);
 
                 worldData.setDirty();
-                SOCKET_SERVER.broadcastBlockGroupList();
+                SOCKET_SERVER.broadcastBlockGroupUpdated(blockGroup);
             }
         }
     }
