@@ -5,17 +5,18 @@ import tf.festival.webstone.blockentity.WebstoneRemoteBlockEntity;
 
 import java.util.UUID;
 
-public class WebstoneRegisteredBlock {
+public class WebstoneBlock {
     private UUID blockId;
     private String name;
     private boolean powered;
     private int power;
 
+    private UUID groupId;
 
     private transient WebstoneRemoteBlock block;
     private transient WebstoneRemoteBlockEntity blockEntity;
 
-    public WebstoneRegisteredBlock(UUID blockId, String name, boolean powered, int power) {
+    public WebstoneBlock(UUID blockId, String name, boolean powered, int power) {
         this.blockId = blockId;
         this.name = name;
         this.powered = powered;
@@ -40,7 +41,9 @@ public class WebstoneRegisteredBlock {
 
     public void setPowered(boolean powered) {
         this.powered = powered;
-        this.blockEntity.setPowered((powered));
+
+        if (this.blockEntity != null)
+            this.blockEntity.setPowered((powered));
     }
 
     public int getPower() {
@@ -49,7 +52,18 @@ public class WebstoneRegisteredBlock {
 
     public void setPower(int power) {
         this.power = Math.min(Math.max(power, 0), 15);
-        this.blockEntity.setPower(this.power);
+
+        if (this.blockEntity != null)
+            this.blockEntity.setPower(this.power);
+    }
+
+    public UUID getGroupId() {
+        if (this.groupId != null) return this.groupId;
+        return null;
+    }
+
+    public void setGroupId(UUID groupId) {
+        this.groupId = groupId;
     }
 
     public WebstoneRemoteBlock getBlock() {

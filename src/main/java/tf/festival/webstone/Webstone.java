@@ -27,6 +27,7 @@ import tf.festival.webstone.item.WebstoneItems;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.UUID;
 
 @Mod(Webstone.MOD_ID)
@@ -101,48 +102,52 @@ public class Webstone {
         }
     }
 
+    // region WebSocket client handlers
     public static boolean registerBlock(UUID blockId, boolean powered, int power, WebstoneRemoteBlockEntity blockEntity) {
-        if (worldData.getRegisteredBlocks().stream().filter(block -> blockId.equals(block.getBlockId())).findFirst().orElse(null) == null) {
-            WebstoneRegisteredBlock registeredBlock = new WebstoneRegisteredBlock(blockId, "Example", powered, power);
-            registeredBlock.setBlockEntity(blockEntity);
+        if (SERVER != null) {
+            WebstoneBlock block = worldData.getBlockById(blockId);
 
-            worldData.getRegisteredBlocks().add(registeredBlock);
+            if (block == null) {
+                block = new WebstoneBlock(blockId, "Example", powered, power);
+                block.setBlockEntity(blockEntity);
 
-            worldData.setDirty();
-            SOCKET_SERVER.broadcastBlockList();
+                worldData.getBlocks().add(block);
 
-            return true;
+                worldData.setDirty();
+                SOCKET_SERVER.broadcastBlockList();
+
+                return true;
+            }
         }
 
         return false;
     }
 
     public static void unregisterBlock(UUID blockId) {
-        WebstoneRegisteredBlock registeredBlock = worldData.getRegisteredBlocks().stream().filter(block -> blockId.equals(block.getBlockId())).findFirst().orElse(null);
-        if (registeredBlock != null) {
-            worldData.getRegisteredBlocks().remove(registeredBlock);
+        if (SERVER != null) {
+            WebstoneBlock block = worldData.getBlockById(blockId);
 
-            worldData.setDirty();
-            SOCKET_SERVER.broadcastBlockList();
-        }
-    }
+            if (block != null) {
+                if (block.getGroupId() != null) {
+                    if ((Object) worldData.getBlockGroupById(block.getGroupId()) instanceof WebstoneBlockGroup blockGroup) {
+                        blockGroup.removeBlock(block);
+                    }
+                }
 
-    public static void renameBlock(UUID blockId, String name) {
-        WebstoneRegisteredBlock registeredBlock = worldData.getRegisteredBlocks().stream().filter(block -> blockId.equals(block.getBlockId())).findFirst().orElse(null);
-        if (registeredBlock != null) {
-            registeredBlock.setName(name);
+                worldData.getBlocks().remove(block);
 
-            worldData.setDirty();
-            SOCKET_SERVER.broadcastBlockList();
+                worldData.setDirty();
+                SOCKET_SERVER.broadcastBlockList();
+            }
         }
     }
 
     public static void setBlockState(UUID blockId, boolean powered, WebstoneRemoteBlockEntity blockEntity) {
         if (SERVER != null) {
-            WebstoneRegisteredBlock registeredBlock = worldData.getRegisteredBlocks().stream().filter(block -> block.getBlockId().equals(blockId)).findFirst().orElse(null);
+            WebstoneBlock block = worldData.getBlockById(blockId);
 
-            if (registeredBlock != null) {
-                registeredBlock.setPowered(powered);
+            if (block != null) {
+                block.setPowered(powered);
 
                 worldData.setDirty();
                 SOCKET_SERVER.broadcastUpdatedBlockState(blockId, powered);
@@ -154,16 +159,130 @@ public class Webstone {
 
     public static void setBlockPower(UUID blockId, int power) {
         if (SERVER != null) {
-            WebstoneRegisteredBlock registeredBlock = worldData.getRegisteredBlocks().stream().filter(block -> block.getBlockId().equals(blockId)).findFirst().orElse(null);
+            WebstoneBlock block = worldData.getBlockById(blockId);
 
-            if (registeredBlock != null) {
-                registeredBlock.setPower(power);
+            if (block != null) {
+                block.setPower(power);
 
                 worldData.setDirty();
                 SOCKET_SERVER.broadcastUpdatedBlockPower(blockId, power);
             }
         }
     }
+
+    public static void renameBlock(UUID blockId, String name) {
+        if (SERVER != null) {
+            WebstoneBlock block = worldData.getBlockById(blockId);
+
+            if (block != null) {
+                block.setName(name);
+
+                worldData.setDirty();
+                SOCKET_SERVER.broadcastBlockList();
+            }
+        }
+    }
+
+    public static void changeBlockGroup(UUID blockId, UUID groupId) {
+        if (SERVER != null) {
+            WebstoneBlock block = worldData.getBlockById(blockId);
+            WebstoneBlockGroup blockGroup = null;
+
+            if (groupId != null) {
+                blockGroup = worldData.getBlockGroupById(groupId);
+            }
+
+            if (block != null) {
+                if (block.getGroupId() != null && (Object) worldData.getBlockGroupById(block.getGroupId()) instanceof WebstoneBlockGroup _blockGroup) {
+                    _blockGroup.removeBlock(block);
+                    worldData.setDirty();
+                }
+
+                if (blockGroup != null) {
+                    blockGroup.addBlock(block);
+                    worldData.setDirty();
+                }
+
+                if (worldData.isDirty()) {
+                    SOCKET_SERVER.broadcastBlockGroupList();
+                    SOCKET_SERVER.broadcastBlockList();
+                }
+            }
+        }
+    }
+
+    public static void changeBlockGroupIndex(UUID blockId, int newIndex) {
+        if (SERVER != null) {
+            WebstoneBlock block = worldData.getBlockById(blockId);
+
+            if (block != null) {
+                if (block.getGroupId() != null && (Object) worldData.getBlockGroupById(block.getGroupId()) instanceof WebstoneBlockGroup blockGroup) {
+                    if (blockGroup.moveBlock(block, newIndex)) {
+                        worldData.setDirty();
+                        SOCKET_SERVER.broadcastBlockGroupList();
+                    }
+                }
+            }
+        }
+    }
+
+    public static void createGroup(String name) {
+        if (SERVER != null) {
+            WebstoneBlockGroup blockGroup = new WebstoneBlockGroup(name);
+
+            worldData.getBlockGroups().add(blockGroup);
+
+            worldData.setDirty();
+            SOCKET_SERVER.broadcastBlockGroupList();
+        }
+    }
+
+    public static void renameGroup(UUID groupId, String name) {
+        if (SERVER != null) {
+            WebstoneBlockGroup blockGroup = worldData.getBlockGroupById(groupId);
+
+            if (blockGroup != null) {
+                blockGroup.setName(name);
+
+                worldData.setDirty();
+                SOCKET_SERVER.broadcastBlockGroupList();
+            }
+        }
+    }
+
+    public static void deleteGroup(UUID groupId) {
+        if (SERVER != null) {
+            WebstoneBlockGroup blockGroup = worldData.getBlockGroupById(groupId);
+
+            if (blockGroup != null) {
+                for (UUID blockId : new ArrayList<>(blockGroup.getBlockIds())) {
+                    blockGroup.removeBlock(worldData.getBlockById(blockId));
+                }
+
+                worldData.getBlockGroups().remove(blockGroup);
+
+                worldData.setDirty();
+
+                SOCKET_SERVER.broadcastBlockGroupList();
+                SOCKET_SERVER.broadcastBlockList();
+            }
+        }
+    }
+
+    public static void changeGroupIndex(UUID groupId, int newIndex) {
+        if (SERVER != null) {
+            WebstoneBlockGroup blockGroup = worldData.getBlockGroupById(groupId);
+
+            if (blockGroup != null) {
+                worldData.getBlockGroups().remove(blockGroup);
+                worldData.getBlockGroups().add(newIndex, blockGroup);
+
+                worldData.setDirty();
+                SOCKET_SERVER.broadcastBlockGroupList();
+            }
+        }
+    }
+    // endregion
 
     // https://gist.github.com/Mimickal/43aa3a75a52c2b55ab9358f8c9acd1f9
     public static Iterable<ChunkHolder> getLoadedChunks(ServerLevel world) {

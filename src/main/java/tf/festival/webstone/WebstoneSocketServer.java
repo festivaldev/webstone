@@ -62,9 +62,9 @@ public class WebstoneSocketServer extends WebSocketServer {
             try {
                 if (!request.hasFieldValue("Sec-WebSocket-Protocol")
                     || !BCrypt.verifyer().verify(
-                        new String(Hex.decodeHex(request.getFieldValue("Sec-WebSocket-Protocol").toCharArray()), StandardCharsets.UTF_8).toCharArray(),
-                        WebstoneConfig.PASSPHRASE.get()
-                    ).verified) {
+                    new String(Hex.decodeHex(request.getFieldValue("Sec-WebSocket-Protocol").toCharArray()), StandardCharsets.UTF_8).toCharArray(),
+                    WebstoneConfig.PASSPHRASE.get()
+                ).verified) {
                     throw new InvalidDataException(CloseFrame.POLICY_VALIDATION, "Not accepted!");
                 }
             } catch (Exception e) {
@@ -85,7 +85,8 @@ public class WebstoneSocketServer extends WebSocketServer {
     @Override
     public void onOpen(WebSocket ws, ClientHandshake handshake) {
         Webstone.LOGGER.info(String.format("New connection from %s", ws.getRemoteSocketAddress().getAddress().getHostAddress()));
-        ws.send(encodeJson("block_list", Webstone.getWorldData().getRegisteredBlocks()));
+        ws.send(encodeJson("block_list", Webstone.getWorldData().getBlocks()));
+        ws.send(encodeJson("block_groups", Webstone.getWorldData().getBlockGroups()));
     }
 
     @Override
@@ -142,6 +143,63 @@ public class WebstoneSocketServer extends WebSocketServer {
                     Webstone.unregisterBlock(blockId);
                     break;
                 }
+                case "change_group": {
+                    JsonObject block = data.getAsJsonObject();
+
+                    UUID blockId = UUID.fromString(block.get("blockId").getAsString());
+                    UUID groupId = null;
+
+                    try {
+                        groupId = UUID.fromString(block.get("groupId").getAsString());
+                    } catch (Exception e) {
+                    }
+
+                    Webstone.changeBlockGroup(blockId, groupId);
+                    break;
+                }
+                case "move_block": {
+                    JsonObject block = data.getAsJsonObject();
+
+                    UUID blockId = UUID.fromString(block.get("blockId").getAsString());
+                    int newIndex = block.get("newIndex").getAsInt();
+
+                    Webstone.changeBlockGroupIndex(blockId, newIndex);
+                    break;
+                }
+                case "create_group": {
+                    JsonObject group = data.getAsJsonObject();
+
+                    String name = group.get("name").getAsString();
+
+                    Webstone.createGroup(name);
+                    break;
+                }
+                case "rename_group": {
+                    JsonObject group = data.getAsJsonObject();
+
+                    UUID groupId = UUID.fromString(group.get("groupId").getAsString());
+                    String name = group.get("name").getAsString();
+
+                    Webstone.renameGroup(groupId, name);
+                    break;
+                }
+                case "delete_group": {
+                    JsonObject group = data.getAsJsonObject();
+
+                    UUID groupId = UUID.fromString(group.get("groupId").getAsString());
+
+                    Webstone.deleteGroup(groupId);
+                    break;
+                }
+                case "move_group": {
+                    JsonObject group = data.getAsJsonObject();
+
+                    UUID groupId = UUID.fromString(group.get("groupId").getAsString());
+                    int newIndex = group.get("newIndex").getAsInt();
+
+                    Webstone.changeGroupIndex(groupId, newIndex);
+                    break;
+                }
                 default:
                     break;
             }
@@ -157,8 +215,12 @@ public class WebstoneSocketServer extends WebSocketServer {
         }
     }
 
+    public void broadcastBlockGroupList() {
+        broadcast(encodeJson("block_groups", Webstone.getWorldData().getBlockGroups()));
+    }
+
     public void broadcastBlockList() {
-        broadcast(encodeJson("block_list", Webstone.getWorldData().getRegisteredBlocks()));
+        broadcast(encodeJson("block_list", Webstone.getWorldData().getBlocks()));
     }
 
     public void broadcastUpdatedBlockState(UUID blockId, boolean powered) {
@@ -185,7 +247,7 @@ public class WebstoneSocketServer extends WebSocketServer {
         return message.toString();
     }
 
-    //region SSL Stuff
+    // region SSL Stuff
     private static SSLContext getContext() {
         SSLContext context;
         String password = WebstoneConfig.CERTIFICATE_KEY_PASS.get();
@@ -193,10 +255,10 @@ public class WebstoneSocketServer extends WebSocketServer {
             context = SSLContext.getInstance("TLS");
 
             byte[] certBytes = parseDERFromPEM(getBytes(new File(Paths.get(FMLPaths.GAMEDIR.get().toString(), "data", WebstoneConfig.CERTIFICATE_FILENAME.get()).toString())),
-                    "-----BEGIN CERTIFICATE-----", "-----END CERTIFICATE-----");
+                "-----BEGIN CERTIFICATE-----", "-----END CERTIFICATE-----");
             byte[] keyBytes = parseDERFromPEM(
-                    getBytes(new File(Paths.get(FMLPaths.GAMEDIR.get().toString(), "data", WebstoneConfig.CERTIFICATE_KEY_FILENAME.get()).toString())),
-                    "-----BEGIN PRIVATE KEY-----", "-----END PRIVATE KEY-----");
+                getBytes(new File(Paths.get(FMLPaths.GAMEDIR.get().toString(), "data", WebstoneConfig.CERTIFICATE_KEY_FILENAME.get()).toString())),
+                "-----BEGIN PRIVATE KEY-----", "-----END PRIVATE KEY-----");
 
             X509Certificate cert = generateCertificateFromDER(certBytes);
             RSAPrivateKey key = generatePrivateKeyFromDER(keyBytes);
@@ -226,7 +288,7 @@ public class WebstoneSocketServer extends WebSocketServer {
     }
 
     private static RSAPrivateKey generatePrivateKeyFromDER(byte[] keyBytes)
-            throws InvalidKeySpecException, NoSuchAlgorithmException {
+        throws InvalidKeySpecException, NoSuchAlgorithmException {
         PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(keyBytes);
 
         KeyFactory factory = KeyFactory.getInstance("RSA");
@@ -235,7 +297,7 @@ public class WebstoneSocketServer extends WebSocketServer {
     }
 
     private static X509Certificate generateCertificateFromDER(byte[] certBytes)
-            throws CertificateException {
+        throws CertificateException {
         CertificateFactory factory = CertificateFactory.getInstance("X.509");
 
         return (X509Certificate) factory.generateCertificate(new ByteArrayInputStream(certBytes));
@@ -247,12 +309,12 @@ public class WebstoneSocketServer extends WebSocketServer {
         FileInputStream fis = null;
         try {
             fis = new FileInputStream(file);
-            fis.read(bytesArray); //read file into bytes[]
+            fis.read(bytesArray);
             fis.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
         return bytesArray;
     }
-    //endregion
+    // endregion
 }
