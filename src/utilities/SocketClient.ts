@@ -27,7 +27,6 @@ export default class SocketClient extends EventTarget {
 
         requestAnimationFrame(checkReadyState);
       } else {
-        console.log('SOCKET GONE');
         this._readyState = WebSocket.CLOSED;
         this.dispatchEvent(new CustomEvent('readyStateChange', { detail: this._readyState }));
       }
@@ -48,9 +47,6 @@ export default class SocketClient extends EventTarget {
   }
 
   public send(data: any) {
-    console.log('→', data);
-    console.log('readyState', this._socket?.readyState, this._socket, this._connectionUri);
-
     if (typeof data === 'object') {
       this._socket?.send(JSON.stringify(data));
     } else {
@@ -59,7 +55,6 @@ export default class SocketClient extends EventTarget {
   }
 
   private _onOpen(e: Event): void {
-    console.log('open', e);
     this._emit('open', e);
   }
 
@@ -67,7 +62,6 @@ export default class SocketClient extends EventTarget {
     // 1000: Closed by client
     // 1001: Closed by server
     // 1006: Closed abnormally, timeout
-    console.log('close', e);
     this._emit('close', e);
 
     this._socket = null;
@@ -78,8 +72,6 @@ export default class SocketClient extends EventTarget {
     try {
       data = JSON.parse(data);
     } catch {}
-
-    console.log('←', data);
 
     this._emit(
       'message',
@@ -98,7 +90,6 @@ export default class SocketClient extends EventTarget {
   private _onError(e: Event): void {
     const event = e as ErrorEvent;
 
-    console.log('error', e);
     this._emit('error', event);
   }
 
