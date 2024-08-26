@@ -36,6 +36,20 @@ const App = (): React.ReactNode => {
             case 'block_list':
               setBlocks(() => data.data);
               break;
+            case 'block_updated':
+              setBlocks((blocks) =>
+                blocks?.map((block) => (block.blockId === data.data.blockId ? { ...data.data } : block)),
+              );
+              break;
+            case 'group_updated':
+              setBlockGroups((blockGroups) =>
+                blockGroups?.map((blockGroup) =>
+                  blockGroup.groupId === data.data.groupId ? { ...data.data } : blockGroup,
+                ),
+              );
+              break;
+
+            // #region Deprecated
             case 'block_state':
               setBlocks((blocks) =>
                 blocks?.map((block) =>
@@ -57,6 +71,7 @@ const App = (): React.ReactNode => {
                 ),
               );
               break;
+            // #endregion
             default:
               break;
           }
