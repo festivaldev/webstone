@@ -1,321 +1,178 @@
-import { BlockButton, Header } from '@/components';
-import classNames from '@/utilities/classNames';
-import { XCircleIcon } from '@heroicons/react/24/outline';
-import { Button, Checkbox, Input, Spinner, Tooltip } from '@nextui-org/react';
-import { Buffer } from 'buffer';
-import { useEffect, useMemo, useState } from 'react';
-
-const DEFAULT_HOSTNAME = '127.0.0.1';
-const DEFAULT_PORT = 4321;
+import { BlockGroup, ConnectionScreen, Header } from '@/components';
+import { Spinner } from '@nextui-org/react';
+import React from 'react';
+import Modals, { type ModalHandler } from './components/Modals';
+import SocketClient from './utilities/SocketClient';
 
 const App = (): React.ReactNode => {
-  const isSecureConnection = useMemo(() => location.protocol.startsWith('https'), []);
+  const [socket, setSocket] = React.useState<SocketClient>();
 
-  const [hostname, setHostname] = useState<string | undefined>(undefined);
-  const [port, setPort] = useState<number | undefined>(undefined);
-  const [passphrase, setPassphrase] = useState<string | undefined>(undefined);
-  const [useSecureSocket, setUseSecureSocket] = useState<boolean>(isSecureConnection);
+  const [readyState, setReadyState] = React.useState<number>(-1);
+  const [connectionError, setConnectionError] = React.useState<string | undefined>(undefined);
+  const isConnecting = React.useMemo(() => readyState === WebSocket.CONNECTING, [readyState]);
+  const isConnected = React.useMemo(() => readyState === WebSocket.OPEN, [readyState]);
 
-  const [socket, setSocket] = useState<WebSocket | null>(null);
-  const [isConnecting, setConnecting] = useState<boolean>(false);
-  const [isConnected, setConnected] = useState<boolean>(false);
-  const [connectError, setConnectError] = useState<string | undefined>(undefined);
+  const [blockGroups, setBlockGroups] = React.useState<BlockGroup[] | undefined>([]);
+  const [blocks, setBlocks] = React.useState<Block[] | undefined>();
 
-  const [blocks, setBlocks] = useState<Block[] | undefined>(undefined);
+  const ungroupedBlocks = React.useMemo<Block[]>(() => blocks?.filter((block) => !block.groupId) ?? [], [blocks]);
+  const modals = React.useRef<ModalHandler>(null);
 
-  useEffect(() => {
-    setHostname(() => localStorage.getItem('hostname') ?? undefined);
-    setPort(() => (localStorage.getItem('port') ? Number(localStorage.getItem('port')) : undefined));
-  }, []);
+  React.useEffect(() => {
+    if (!socket) {
+      const _socket = new SocketClient();
+      _socket.addEventListener('readyStateChange', (e: Event) => {
+        setReadyState(() => (e as CustomEvent).detail);
+      });
 
-  const trimmedHostname = useMemo(() => (hostname?.trim().length ? hostname?.trim() : undefined), [hostname]);
-  const trimmedPort = useMemo(() => (port ? String(port).trim() : undefined), [port]);
+      _socket.addEventListener('message', (e: Event) => {
+        const { data } = e as MessageEvent;
 
-  const connect = () => {
-    setBlocks(() => undefined);
+        if (typeof data === 'object') {
+          switch (data.type) {
+            case 'block_groups':
+              setBlockGroups(() => data.data);
+              break;
+            case 'block_list':
+              setBlocks(() => data.data);
+              break;
+            case 'block_state':
+              setBlocks((blocks) =>
+                blocks?.map((block) =>
+                  block.blockId === data.data.blockId ? { ...block, powered: data.data.powered } : block,
+                ),
+              );
+              break;
+            case 'block_power':
+              setBlocks((blocks) =>
+                blocks?.map((block) =>
+                  block.blockId === data.data.blockId ? { ...block, power: data.data.power } : block,
+                ),
+              );
+              break;
+            case 'rename_block':
+              setBlocks((blocks) =>
+                blocks?.map((block) =>
+                  block.blockId === data.data.blockId ? { ...block, name: data.data.name } : block,
+                ),
+              );
+              break;
+            default:
+              break;
+          }
+        }
+      });
 
-    const connectUri = `${isSecureConnection || useSecureSocket ? 'wss' : 'ws'}://${trimmedHostname ?? DEFAULT_HOSTNAME}:${trimmedPort ?? DEFAULT_PORT}`;
-    const _socket = new WebSocket(
-      connectUri,
-      passphrase ? [Buffer.from(passphrase, 'utf8').toString('hex')] : undefined,
-    );
+      _socket.addEventListener('close', (e: Event) => {
+        const event = e as CloseEvent;
 
-    if (trimmedHostname) {
-      localStorage.setItem('hostname', trimmedHostname);
-    } else {
-      localStorage.removeItem('hostname');
-    }
-
-    if (trimmedPort) {
-      localStorage.setItem('port', trimmedPort);
-    } else {
-      localStorage.removeItem('port');
-    }
-
-    setConnectError(() => undefined);
-    setConnecting(() => true);
-
-    _socket.addEventListener('open', () => {
-      console.log('Connection opened');
-      setConnected(() => true);
-    });
-
-    _socket.addEventListener('close', () => {
-      console.log('Connection closed');
-      setSocket(() => null);
-
-      setConnecting(() => false);
-      setConnected(() => false);
-    });
-
-    _socket.addEventListener('error', (_) => {
-      setConnectError(() => `Failed to connect to ${connectUri}!`);
-    });
-
-    _socket.addEventListener('message', ({ data: message }) => {
-      try {
-        const data = JSON.parse(message);
-
-        switch (data.type) {
-          case 'block_list':
-            setBlocks(() => data.data);
+        switch (event.code) {
+          case 1000:
             break;
-          case 'block_state':
-            setBlocks((blocks) =>
-              blocks?.map((block) =>
-                block.blockId === data.data.blockId ? { ...block, powered: data.data.powered } : block,
-              ),
-            );
+          case 1001:
+            setConnectionError(() => 'Connection closed by server.');
             break;
-          case 'block_power':
-            setBlocks((blocks) =>
-              blocks?.map((block) =>
-                block.blockId === data.data.blockId ? { ...block, power: data.data.power } : block,
-              ),
-            );
-            break;
-          case 'rename_block':
-            setBlocks((blocks) =>
-              blocks?.map((block) =>
-                block.blockId === data.data.blockId ? { ...block, name: data.data.name } : block,
-              ),
-            );
+          case 1006:
+            setConnectionError(() => `Connection to ${_socket.connectionUri} failed.`);
             break;
           default:
             break;
         }
-      } catch (error) {
-        console.error('Failed to parse JSON message', error);
-      }
-    });
 
-    setSocket(() => _socket);
-  };
+        setBlockGroups(() => undefined);
+        setBlocks(() => undefined);
+      });
 
-  const disconnect = () => {
-    socket?.close();
-  };
-
-  const setBlockState = (blockId: string, powered: boolean): void => {
-    socket?.send(
-      JSON.stringify({
-        type: 'block_state',
-        data: {
-          blockId,
-          powered,
-        },
-      }),
-    );
-  };
-
-  const setBlockPower = (blockId: string, power: number): void => {
-    socket?.send(
-      JSON.stringify({
-        type: 'block_power',
-        data: {
-          blockId,
-          power: Math.min(Math.max(power, 0), 15),
-        },
-      }),
-    );
-  };
-
-  const renameBlock = (blockId: string): void => {
-    const blockName = prompt('Rename the button to:');
-    if (blockName?.trim().length) {
-      socket?.send(
-        JSON.stringify({
-          type: 'rename_block',
-          data: {
-            blockId,
-            name: blockName.substring(0, 64).trim(),
-          },
-        }),
-      );
+      setSocket(() => _socket);
     }
-  };
-
-  const unregisterBlock = (blockId: string): void => {
-    if (confirm('Do you really want to delete this block?')) {
-      socket?.send(
-        JSON.stringify({
-          type: 'unregister_block',
-          data: {
-            blockId,
-          },
-        }),
-      );
-    }
-  };
+  }, []);
 
   return (
-    <div className="p-4 pt-20">
-      <Header isConnected disconnect={disconnect} />
+    <>
+      <div className="p-4 pt-20">
+        <Header
+          isConnected={isConnected}
+          onCreateGroup={() => modals.current?.openCreateGroupModal()}
+          onReorderGroups={() => modals.current?.openChangeGroupOrderModal()}
+          onDisconnect={() => {
+            socket?.disconnect();
+          }}
+        />
 
-      {!isConnected && (
-        <div className="absolute left-0 top-0 flex h-full w-full flex-col items-center justify-center space-y-4">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              connect();
+        {!isConnected && (
+          <ConnectionScreen
+            isConnecting={isConnecting}
+            connectionError={connectionError}
+            onConnect={(hostname, port, passphrase, useSecureSocket) => {
+              setConnectionError(() => undefined);
+              socket?.connect(hostname, port, passphrase, useSecureSocket);
             }}
-            className="space-y-4"
-          >
-            <div className="flex w-full flex-nowrap gap-4 md:flex-nowrap">
-              <Input
-                type="text"
-                label="Hostname / IP address"
-                placeholder={DEFAULT_HOSTNAME}
-                value={hostname ?? ''}
-                isDisabled={isConnecting}
-                onChange={(e) => setHostname(() => e.target.value)}
-              />
+            onCancelConnect={() => {
+              socket?.disconnect();
+            }}
+          />
+        )}
 
-              <Input
-                type="string"
-                label="Port"
-                placeholder={`${DEFAULT_PORT}`}
-                value={String(port ?? '')}
-                max={65535}
-                isDisabled={isConnecting}
-                className="w-24 text-center"
-                onChange={(e) => !isNaN(parseInt(e.target.value, 10)) && setPort(() => Number(e.target.value))}
-              />
-            </div>
-
-            <div className="flex w-full flex-nowrap gap-4 md:flex-nowrap">
-              <Input
-                type="password"
-                label="Passphrase"
-                placeholder="Optional"
-                value={passphrase ?? ''}
-                isDisabled={isConnecting}
-                onChange={(e) => setPassphrase(() => e.target.value)}
-              />
-            </div>
-
-            <Tooltip
-              showArrow
-              closeDelay={300}
-              content={
-                <>
-                  <p className="text-center">
-                    You can't connect to insecure WebSockets
-                    <br />
-                    because this site is using HTTPS.
-                  </p>
-                  <a
-                    className="mt-2 text-center text-primary hover:underline"
-                    href={`http://${location.href.replace(/http(s)?:\/\//, '')}`}
-                  >
-                    Switch to HTTP
-                  </a>
-
-                  <small className="mt-2 text-center text-xs text-white/40">
-                    Your browser may display a
-                    <br />
-                    disclaimer that this site is insecure.
-                  </small>
-                </>
-              }
-              hidden={!isSecureConnection}
-            >
-              <div>
-                <Checkbox
-                  isSelected={isSecureConnection || useSecureSocket}
-                  isDisabled={isSecureConnection || isConnecting}
-                  onChange={(e) => setUseSecureSocket(e.target.checked)}
-                  disableAnimation={isSecureConnection}
-                >
-                  Use Secure WebSocket
-                </Checkbox>
+        {isConnected && (
+          <>
+            {(!blockGroups || !blocks) && (
+              <div className="absolute left-0 top-0 flex h-full w-full flex-col items-center justify-center space-y-4">
+                <Spinner size="lg" />
               </div>
-            </Tooltip>
+            )}
 
-            <div className="flex justify-center gap-4">
-              <Button
-                color="primary"
-                isDisabled={isConnecting}
-                isLoading={isConnecting}
-                type="submit"
-                className="flex-1"
-              >
-                {isConnecting ? `Connecting...` : 'Connect to Minecraft'}
-              </Button>
+            {blockGroups?.length === 0 && blocks?.length === 0 && (
+              <div className="absolute left-0 top-0 flex h-full w-full flex-col items-center justify-center space-y-4">
+                <p className="text-center text-xl text-gray-500">
+                  No Webstone blocks registered.
+                  <br />
+                  <span className="text-base">
+                    Place a Webstone block and right-click it with an empty hand to register.
+                  </span>
+                </p>
+              </div>
+            )}
 
-              <Button isIconOnly variant="flat" isDisabled={!isConnecting} onClick={disconnect}>
-                <XCircleIcon className="size-6 text-danger" />
-              </Button>
-            </div>
+            <div className="space-y-4">
+              {ungroupedBlocks && ungroupedBlocks.length > 0 && (
+                <BlockGroup
+                  blocks={ungroupedBlocks}
+                  onBlockStateChanged={(blockId, powered) => socket?.setBlockState(blockId, powered)}
+                  onBlockPowerChanged={(blockId, power) => socket?.setBlockPower(blockId, power)}
+                  onBlockRename={(blockId) => modals.current?.openRenameBlockModal(blockId)}
+                  onBlockGroupChange={(blockId) => modals.current?.openChangeBlockGroupModal(blockId)}
+                  onBlockDelete={(blockId) => modals.current?.openDeleteBlockModal(blockId)}
+                  onGroupRename={(groupId) => modals.current?.openRenameGroupModal(groupId)}
+                  onGroupDelete={(groupId) => modals.current?.openDeleteGroupModal(groupId)}
+                />
+              )}
 
-            <span
-              className={classNames('block text-center text-xs text-danger', {
-                invisible: !connectError && false,
-              })}
-            >
-              {connectError || <>&nbsp;</>}
-            </span>
-          </form>
-        </div>
-      )}
-
-      {isConnected && (
-        <>
-          {!blocks && (
-            <div className="absolute left-0 top-0 flex h-full w-full flex-col items-center justify-center space-y-4">
-              <Spinner size="lg" />
-            </div>
-          )}
-
-          {blocks && blocks.length === 0 && (
-            <div className="absolute left-0 top-0 flex h-full w-full flex-col items-center justify-center space-y-4">
-              <p className="text-center text-xl text-gray-500">
-                No Webstone blocks registered.
-                <br />
-                <span className="text-base">
-                  Place a Webstone block and right-click it with an empty hand to register.
-                </span>
-              </p>
-            </div>
-          )}
-
-          {blocks && blocks.length > 0 && (
-            <div className="4xl:grid-cols-12 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 2xl:grid-cols-8">
-              {blocks.map((block) => (
-                <BlockButton
-                  key={block.blockId}
-                  block={block}
-                  setBlockState={setBlockState}
-                  setBlockPower={setBlockPower}
-                  renameBlock={renameBlock}
-                  unregisterBlock={unregisterBlock}
+              {blockGroups?.map((blockGroup) => (
+                <BlockGroup
+                  key={blockGroup.groupId}
+                  group={blockGroup}
+                  blocks={
+                    (blockGroup.blockIds
+                      .map((id) => blocks?.find((block) => id === block.blockId))
+                      .filter(Boolean) as Block[]) ?? []
+                  }
+                  onBlockStateChanged={(blockId, powered) => socket?.setBlockState(blockId, powered)}
+                  onBlockPowerChanged={(blockId, power) => socket?.setBlockPower(blockId, power)}
+                  onBlockRename={(blockId) => modals.current?.openRenameBlockModal(blockId)}
+                  onBlockGroupChange={(blockId) => modals.current?.openChangeBlockGroupModal(blockId)}
+                  onBlockDelete={(blockId) => modals.current?.openDeleteBlockModal(blockId)}
+                  onGroupRename={(groupId) => modals.current?.openRenameGroupModal(groupId)}
+                  onReorderBlocks={(groupId) => modals.current?.openChangeBlockOrderModal(groupId)}
+                  onGroupDelete={(groupId) => modals.current?.openDeleteGroupModal(groupId)}
                 />
               ))}
             </div>
-          )}
-        </>
-      )}
-    </div>
+          </>
+        )}
+      </div>
+
+      {blockGroups && blocks && <Modals ref={modals} socket={socket} blockGroups={blockGroups} blocks={blocks} />}
+    </>
   );
 };
 

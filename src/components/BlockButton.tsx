@@ -1,72 +1,90 @@
 import classNames from '@/utilities/classNames';
-import { PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
-import { Button, Card, CardBody, CardFooter, CardHeader, Slider, Tooltip } from '@nextui-org/react';
+import { EllipsisHorizontalIcon, ListBulletIcon, PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
+import {
+  Button,
+  Card,
+  CardBody,
+  CardFooter,
+  CardHeader,
+  Dropdown,
+  DropdownItem,
+  DropdownMenu,
+  DropdownTrigger,
+  Tooltip,
+} from '@nextui-org/react';
+import Slider from './Slider';
 
 const BlockButton = ({
   block,
-  setBlockState,
-  setBlockPower,
-  renameBlock,
-  unregisterBlock,
+  onStateChanged,
+  onPowerChanged,
+  onRename,
+  onGroupChange,
+  onDelete,
 }: {
   block: Block;
-  setBlockState: (blockId: string, powered: boolean) => void;
-  setBlockPower: (blockId: string, power: number) => void;
-  renameBlock: (blockId: string) => void;
-  unregisterBlock: (blockId: string) => void;
+  onStateChanged?: (powered: boolean) => void;
+  onPowerChanged?: (power: number) => void;
+  onRename?: () => void;
+  onGroupChange?: () => void;
+  onDelete?: () => void;
 }): React.ReactNode => (
-  <Button
-    as="div"
-    key={block.blockId}
-    className={classNames('aspect-square h-auto px-0', {
-      'bg-green-600': block.powered,
-    })}
-    onClick={() => setBlockState(block.blockId, !block.powered)}
-  >
-    <Card className="h-full w-full bg-transparent">
+  <>
+    <Card
+      as="div"
+      isPressable
+      isHoverable={false}
+      className={classNames('aspect-square bg-slate-800', {
+        'bg-green-600': block.powered,
+      })}
+      onClick={() => onStateChanged?.(!block.powered)}
+    >
       <CardHeader className="flex justify-end gap-0.5 pb-0 md:gap-1">
-        <Tooltip showArrow placement="bottom" closeDelay={0} content="Rename">
-          <Button
-            className="size-8 min-w-0 md:size-10"
-            isIconOnly
-            variant="light"
-            onClick={(e) => {
-              e.stopPropagation();
-              setTimeout(() => {
-                renameBlock(block.blockId);
-              });
-            }}
-          >
-            <PencilIcon className="size-4 md:size-5" />
-          </Button>
-        </Tooltip>
-
-        <Tooltip showArrow placement="bottom" closeDelay={0} content="Delete">
-          <Button
-            className="size-8 min-w-0 md:size-10"
-            isIconOnly
-            variant="light"
-            onClick={(e) => {
-              e.stopPropagation();
-              setTimeout(() => {
-                unregisterBlock(block.blockId);
-              });
-            }}
-          >
-            <TrashIcon className="size-4 md:size-5" />
-          </Button>
-        </Tooltip>
+        <Dropdown>
+          <DropdownTrigger>
+            <Button isIconOnly variant="light" className="border-1 border-slate-100/10">
+              <EllipsisHorizontalIcon className="size-5" />
+            </Button>
+          </DropdownTrigger>
+          <DropdownMenu>
+            <DropdownItem key="rename" startContent={<PencilSquareIcon className="size-5" />} onClick={onRename}>
+              Rename Block
+            </DropdownItem>
+            <DropdownItem
+              key="switch-group"
+              startContent={<ListBulletIcon className="size-5" />}
+              onClick={onGroupChange}
+            >
+              Change Group
+            </DropdownItem>
+            <DropdownItem
+              key="delete"
+              className="text-danger"
+              color="danger"
+              startContent={<TrashIcon className="size-5" />}
+              onClick={onDelete}
+            >
+              Delete Block
+            </DropdownItem>
+          </DropdownMenu>
+        </Dropdown>
       </CardHeader>
 
       <CardBody className="flex justify-center py-2 text-center">
         <Tooltip showArrow placement="bottom" closeDelay={0} content={block.name} hidden={block.name.length < 20}>
-          <span className="overflow-hidden overflow-ellipsis text-xl font-semibold">{block.name}</span>
+          <span className="overflow-hidden overflow-ellipsis font-semibold md:text-xl">{block.name}</span>
         </Tooltip>
       </CardBody>
 
-      <CardFooter className="pt-0">
+      <CardFooter
+        className="cursor-default px-4 pt-0"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+      >
         <Slider
-          color="danger"
+          color={block.powered ? 'danger' : 'test'}
           size="md"
           step={1}
           label="Strength"
@@ -74,11 +92,11 @@ const BlockButton = ({
           minValue={0}
           defaultValue={15}
           value={block.power}
-          onChange={(value) => setBlockPower(block.blockId, value as number)}
+          onChange={(value) => onPowerChanged?.(value as number)}
         />
       </CardFooter>
     </Card>
-  </Button>
+  </>
 );
 
 export default BlockButton;
