@@ -1,4 +1,4 @@
-package tf.festival.webstone;
+package tf.festival.webstone.data;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.UUID;
 
 public class WebstoneBlockGroup {
+    // ZeroUUID = ungrouped blocks
     private UUID groupId = UUID.randomUUID();
     private String name;
     private final ArrayList<UUID> blockIds = new ArrayList<>();
@@ -68,13 +69,7 @@ public class WebstoneBlockGroup {
     public boolean moveBlock(WebstoneBlock block, int index) {
         if (block == null) return false;
 
-        if (this.removeBlock(block)) {
-            this.addBlock(block, index);
-
-            return true;
-        }
-
-        return false;
+        return this.removeBlock(block) && this.addBlock(block, index);
     }
 
     public boolean removeBlock(WebstoneBlock block) {

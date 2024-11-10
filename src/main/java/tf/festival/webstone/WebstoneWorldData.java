@@ -11,141 +11,172 @@ import net.minecraft.world.level.saveddata.SavedData;
 import org.jetbrains.annotations.NotNull;
 import tf.festival.webstone.block.WebstoneRemoteBlock;
 import tf.festival.webstone.blockentity.WebstoneRemoteBlockEntity;
+import tf.festival.webstone.data.WebstoneBlock;
+import tf.festival.webstone.data.WebstoneBlockGroup;
 
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.UUID;
 
 public class WebstoneWorldData extends SavedData {
-    private final ArrayList<WebstoneBlockGroup> blockGroups = new ArrayList<>();
-    private final ArrayList<WebstoneBlock> blocks = new ArrayList<>();
-
-    public WebstoneWorldData() {
+    public static WebstoneWorldData getInstance(ServerLevel world) {
+        return world.getDataStorage().computeIfAbsent(WebstoneWorldData::load, WebstoneWorldData::new, Webstone.MOD_ID);
     }
 
-    public static WebstoneWorldData load(CompoundTag nbt) {
+    public static WebstoneWorldData load(CompoundTag compoundTag) {
         WebstoneWorldData data = new WebstoneWorldData();
 
-        ListTag groupList = nbt.getList("BlockGroups", Tag.TAG_COMPOUND);
+        ListTag registriesTag = compoundTag.getList("BlockRegistry", Tag.TAG_COMPOUND);
 
-        for (Tag tag : groupList) {
-            CompoundTag entryTag = (CompoundTag) tag;
+        for (Tag _registryTag : registriesTag) {
+            CompoundTag registryTag = (CompoundTag) _registryTag;
 
-            UUID groupId = UUID.fromString(entryTag.getString("GroupID"));
-            String name = entryTag.getString("Name");
+            UUID registryId = UUID.fromString(registryTag.getString("RegistryID"));
+            WebstoneRegistry registry = new WebstoneRegistry(registryId);
 
-            ArrayList<UUID> blockIds = new ArrayList<>();
-            ListTag blocks = entryTag.getList("BlockIDs", Tag.TAG_STRING);
-
-            for (Tag blockIdTag : blocks) {
-                blockIds.add(UUID.fromString(blockIdTag.getAsString()));
+            String passphraseHash = registryTag.getString("Passphrase");
+            if (!passphraseHash.isEmpty()) {
+                registry.setPassphraseHash(passphraseHash);
             }
 
-            WebstoneBlockGroup blockGroup = new WebstoneBlockGroup(groupId, name, blockIds);
+            ArrayList<WebstoneBlockGroup> blockGroups = new ArrayList<>();
+            ListTag groupList = registryTag.getList("BlockGroups", Tag.TAG_COMPOUND);
 
-            data.blockGroups.add(blockGroup);
-        }
+            for (Tag _groupTag : groupList) {
+                CompoundTag groupTag = (CompoundTag) _groupTag;
 
-        ListTag blockTagList = nbt.getList("RegisteredBlocks", Tag.TAG_COMPOUND);
+                UUID groupId = UUID.fromString(groupTag.getString("GroupID"));
+                String name = groupTag.getString("Name");
 
-        for (Tag blockTag : blockTagList) {
-            CompoundTag entryTag = (CompoundTag) blockTag;
-            UUID blockId = UUID.fromString(entryTag.getString("BlockID"));
+                ArrayList<UUID> blockIds = new ArrayList<>();
+                ListTag blocks = groupTag.getList("BlockIDs", Tag.TAG_STRING);
 
-            UUID groupId = null;
-            try {
-                groupId = UUID.fromString(entryTag.getString("GroupID"));
-            } catch (Exception e) {
+                for (Tag blockIdTag : blocks) {
+                    blockIds.add(UUID.fromString(blockIdTag.getAsString()));
+                }
+
+                blockGroups.add(new WebstoneBlockGroup(groupId, name, blockIds));
             }
 
-            String name = entryTag.getString("Name");
-            boolean powered = entryTag.getBoolean("Powered");
-            int power = entryTag.getInt("Power");
+            registry.getBlockGroups().addAll(blockGroups);
 
-            WebstoneBlock block = new WebstoneBlock(blockId, name, powered, power);
+            ArrayList<WebstoneBlock> blocks = new ArrayList<>();
+            ListTag blockList = registryTag.getList("Blocks", Tag.TAG_COMPOUND);
 
-            if (groupId != null && data.getBlockGroupById(groupId) != null) {
-                block.setGroupId(groupId);
-            }
+            for (Tag _blockTag : blockList) {
+                CompoundTag blockTag = (CompoundTag) _blockTag;
+                UUID blockId = UUID.fromString(blockTag.getString("BlockID"));
 
-            for (ServerLevel level : Webstone.SERVER.getAllLevels()) {
-                for (ChunkHolder holder : Webstone.getLoadedChunks(level)) {
-                    if (holder.getFullChunk() == null) continue;
+                UUID groupId = null;
+                try {
+                    groupId = UUID.fromString(blockTag.getString("GroupID"));
+                } catch (Exception e) {
+                    // Block is not assigned to any group
+                }
 
-                    for (BlockEntity entity : holder.getFullChunk().getBlockEntities().values()) {
-                        if (entity instanceof WebstoneRemoteBlockEntity blockEntity) {
-                            if (blockEntity.getBlockId().equals(blockId)) {
-                                block.setBlock((WebstoneRemoteBlock) blockEntity.getBlockState().getBlock());
-                                block.setBlockEntity(blockEntity);
+                String name = blockTag.getString("Name");
+                boolean powered = blockTag.getBoolean("Powered");
+                int power = blockTag.getInt("Power");
+
+                WebstoneBlock block = new WebstoneBlock(blockId, name, powered, power);
+
+                if (groupId != null && registry.getBlockGroupById(groupId) != null) {
+                    block.setGroupId(groupId);
+                }
+
+                for (ServerLevel level : Webstone.SERVER.getAllLevels()) {
+                    for (ChunkHolder holder : Webstone.getLoadedChunks(level)) {
+                        if (holder.getFullChunk() == null) continue;
+
+                        for (BlockEntity entity : holder.getFullChunk().getBlockEntities().values()) {
+                            if (entity instanceof WebstoneRemoteBlockEntity blockEntity) {
+                                if (blockEntity.getBlockId().equals(blockId)) {
+                                    block.setBlock((WebstoneRemoteBlock) blockEntity.getBlockState().getBlock());
+                                    block.setBlockEntity(blockEntity);
+                                }
                             }
                         }
                     }
                 }
+
+                blocks.add(block);
             }
 
-            data.blocks.add(block);
+            registry.addBlocks(blocks);
+            WebstoneRegistry.getAllRegistries().put(registryId, registry);
+        }
+
+        CompoundTag userContextTag = compoundTag.getCompound("UserContext");
+        for (String userId : userContextTag.getAllKeys()) {
+            WebstoneRegistry.setUserRegistryContext(UUID.fromString(userId), WebstoneRegistry.WebstoneRegistryContext.values()[userContextTag.getInt(userId)]);
         }
 
         return data;
     }
 
     @Override
-    public @NotNull CompoundTag save(@NotNull CompoundTag nbt) {
-        ListTag blockList = new ListTag();
-        for (WebstoneBlock block : blocks) {
-            CompoundTag entryTag = new CompoundTag();
-            entryTag.putString("BlockID", block.getBlockId().toString());
+    public @NotNull CompoundTag save(@NotNull CompoundTag compoundTag) {
+        ListTag registriesTag = new ListTag();
 
-            if (block.getGroupId() != null) {
-                entryTag.putString("GroupID", block.getGroupId().toString());
+        for (Map.Entry<UUID, WebstoneRegistry> registryEntry : WebstoneRegistry.getAllRegistries().entrySet()) {
+            WebstoneRegistry registry = registryEntry.getValue();
+            CompoundTag registryTag = new CompoundTag();
+
+            registryTag.putString("RegistryID", registry.getRegistryId().toString());
+
+            if (registry.getPassphrase() != null && !registry.getPassphrase().isEmpty()) {
+                registryTag.putString("Passphrase", registry.getPassphrase());
             }
 
-            entryTag.putString("Name", block.getName());
-            entryTag.putBoolean("Powered", block.isPowered());
-            entryTag.putInt("Power", block.getPower());
+            ListTag blockListTag = new ListTag();
+            for (WebstoneBlock block : registry.getBlocks()) {
+                CompoundTag blockTag = new CompoundTag();
 
-            blockList.add(entryTag);
-        }
+                blockTag.putString("BlockID", block.getBlockId().toString());
 
-        nbt.put("RegisteredBlocks", blockList);
+                if (block.getGroupId() != null) {
+                    blockTag.putString("GroupID", block.getGroupId().toString());
+                }
 
-        ListTag groupList = new ListTag();
-        for (WebstoneBlockGroup group : blockGroups) {
-            CompoundTag entryTag = new CompoundTag();
+                blockTag.putString("Name", block.getName());
+                blockTag.putBoolean("Powered", block.isPowered());
+                blockTag.putInt("Power", block.getPower());
 
-            entryTag.putString("Name", group.getName());
-            entryTag.putString("GroupID", group.getGroupId().toString());
-
-            ListTag blocks = new ListTag();
-            for (UUID blockId : group.getBlockIds()) {
-                blocks.add(StringTag.valueOf(blockId.toString()));
+                blockListTag.add(blockTag);
             }
-            entryTag.put("BlockIDs", blocks);
 
-            groupList.add(entryTag);
+            registryTag.put("Blocks", blockListTag);
+
+            ListTag groupListTag = new ListTag();
+            for (WebstoneBlockGroup blockGroup : registry.getBlockGroups()) {
+                CompoundTag blockGroupTag = new CompoundTag();
+
+                blockGroupTag.putString("GroupID", blockGroup.getGroupId().toString());
+                blockGroupTag.putString("Name", blockGroup.getName());
+
+                ListTag blocks = new ListTag();
+                for (UUID blockId : blockGroup.getBlockIds()) {
+                    blocks.add(StringTag.valueOf(blockId.toString()));
+                }
+                blockGroupTag.put("BlockIDs", blocks);
+
+                groupListTag.add(blockGroupTag);
+            }
+
+            registryTag.put("BlockGroups", groupListTag);
+
+            registriesTag.add(registryTag);
         }
 
-        nbt.put("BlockGroups", groupList);
+        compoundTag.put("BlockRegistry", registriesTag);
 
-        return nbt;
-    }
+        CompoundTag userContextTag = new CompoundTag();
+        for (Map.Entry<UUID, WebstoneRegistry.WebstoneRegistryContext> userContext : WebstoneRegistry.getAllUsersRegistryContext().entrySet()) {
+            userContextTag.putInt(userContext.getKey().toString(), userContext.getValue().ordinal());
+        }
 
-    public static WebstoneWorldData getInstance(ServerLevel world) {
-        return world.getDataStorage().computeIfAbsent(WebstoneWorldData::load, WebstoneWorldData::new, Webstone.MOD_ID);
-    }
+        compoundTag.put("UserContext", userContextTag);
 
-    public ArrayList<WebstoneBlock> getBlocks() {
-        return blocks;
-    }
-
-    public WebstoneBlock getBlockById(UUID blockId) {
-        return blocks.stream().filter(block -> blockId.equals(block.getBlockId())).findFirst().orElse(null);
-    }
-
-    public ArrayList<WebstoneBlockGroup> getBlockGroups() {
-        return blockGroups;
-    }
-
-    public WebstoneBlockGroup getBlockGroupById(UUID groupId) {
-        return blockGroups.stream().filter(group -> groupId.equals(group.getGroupId())).findFirst().orElse(null);
+        return compoundTag;
     }
 }

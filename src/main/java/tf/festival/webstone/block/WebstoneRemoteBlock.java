@@ -10,6 +10,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Explosion;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.DirectionalBlock;
@@ -22,8 +23,8 @@ import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import org.jetbrains.annotations.NotNull;
-import tf.festival.webstone.Webstone;
-import tf.festival.webstone.blockentity.WebstoneBlockEntities;
+import tf.festival.webstone.WebstoneBlockEntities;
+import tf.festival.webstone.WebstoneRegistry;
 import tf.festival.webstone.blockentity.WebstoneRemoteBlockEntity;
 
 import java.util.UUID;
@@ -32,76 +33,56 @@ public class WebstoneRemoteBlock extends DirectionalBlock implements EntityBlock
     public static final BooleanProperty POWERED = BlockStateProperties.POWERED;
     public static final IntegerProperty POWER = BlockStateProperties.POWER;
 
-    public WebstoneRemoteBlock(Properties pProperties) {
-        super(pProperties);
+    public WebstoneRemoteBlock(Properties properties) {
+        super(properties);
 
         this.registerDefaultState(this.getStateDefinition().any()
-                .setValue(POWERED, Boolean.FALSE)
-                .setValue(POWER, 15));
+            .setValue(POWERED, Boolean.FALSE)
+            .setValue(POWER, 15));
     }
 
     @Override
-    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> pBuilder) {
-        pBuilder.add(FACING, POWERED, POWER);
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        builder.add(FACING, POWERED, POWER);
     }
 
     @Override
-    public boolean isSignalSource(@NotNull BlockState pState) {
+    public boolean isSignalSource(@NotNull BlockState state) {
         return true;
     }
 
     @Override
-    public int getDirectSignal(BlockState pBlockState, @NotNull BlockGetter pBlockAccess, @NotNull BlockPos pPos, @NotNull Direction pSide) {
-        return pBlockState.getSignal(pBlockAccess, pPos, pSide);
+    public int getDirectSignal(BlockState blockState, @NotNull BlockGetter blockAccess, @NotNull BlockPos pos, @NotNull Direction side) {
+        return blockState.getSignal(blockAccess, pos, side);
     }
 
     @Override
-    public int getSignal(BlockState pBlockState, @NotNull BlockGetter pBlockAccess, @NotNull BlockPos pPos, @NotNull Direction pSide) {
-        return pBlockState.getValue(POWERED) && pBlockState.getValue(FACING) == pSide ? pBlockState.getValue(POWER) : 0;
+    public int getSignal(BlockState blockState, @NotNull BlockGetter blockAccess, @NotNull BlockPos pos, @NotNull Direction side) {
+        return blockState.getValue(POWERED) && blockState.getValue(FACING) == side ? blockState.getValue(POWER) : 0;
     }
 
     @Override
-    public void tick(@NotNull BlockState pState, @NotNull ServerLevel pLevel, @NotNull BlockPos pPos, @NotNull RandomSource pRandom) {
-        super.tick(pState, pLevel, pPos, pRandom);
+    public void tick(@NotNull BlockState state, @NotNull ServerLevel level, @NotNull BlockPos pos, @NotNull RandomSource random) {
+        super.tick(state, level, pos, random);
 
-        this.updateNeighborsInFront(pLevel, pPos, pState);
+        this.updateNeighborsInFront(level, pos, state);
     }
 
-    protected void updateNeighborsInFront(Level pLevel, BlockPos pPos, BlockState pState) {
-        Direction direction = pState.getValue(FACING);
-        BlockPos position = pPos.relative(direction.getOpposite());
-        pLevel.neighborChanged(position, this, pPos);
-        pLevel.updateNeighborsAtExceptFromFacing(position, this, direction);
-    }
-
-    @Override
-    public BlockState getStateForPlacement(BlockPlaceContext pContext) {
-        return this.defaultBlockState().setValue(FACING, pContext.getNearestLookingDirection().getOpposite().getOpposite());
+    protected void updateNeighborsInFront(Level level, BlockPos pos, BlockState state) {
+        Direction direction = state.getValue(FACING);
+        BlockPos position = pos.relative(direction.getOpposite());
+        level.neighborChanged(position, this, pos);
+        level.updateNeighborsAtExceptFromFacing(position, this, direction);
     }
 
     @Override
-    public @NotNull InteractionResult use(@NotNull BlockState pState, Level pLevel, @NotNull BlockPos pPos, @NotNull Player pPlayer, @NotNull InteractionHand pHand, @NotNull BlockHitResult pHit) {
-        if (!pLevel.isClientSide) {
-            if (pHand == InteractionHand.MAIN_HAND && pPlayer.getItemInHand(pHand).isEmpty()) {
-                BlockEntity blockEntity = pLevel.getBlockEntity(pPos);
-                if (blockEntity instanceof WebstoneRemoteBlockEntity) {
-                    UUID blockId = ((WebstoneRemoteBlockEntity) blockEntity).getBlockId();
+    public BlockState getStateForPlacement(BlockPlaceContext context) {
+        return this.defaultBlockState().setValue(FACING, context.getNearestLookingDirection().getOpposite().getOpposite());
+    }
 
-                    if (!pPlayer.isCrouching()) {
-                        if (Webstone.registerBlock(blockId, pState.getValue(POWERED), pState.getValue(POWER), (WebstoneRemoteBlockEntity) blockEntity)) {
-                            pPlayer.displayClientMessage(Component.literal("Webstone block registered."), true);
-
-                            return InteractionResult.SUCCESS;
-                        }
-                    } else {
-                        Webstone.setBlockState(blockId, !pState.getValue(POWERED), (WebstoneRemoteBlockEntity) blockEntity);
-                        return InteractionResult.SUCCESS;
-                    }
-                }
-            }
-        }
-
-        return InteractionResult.FAIL;
+    @Override
+    public float getExplosionResistance(BlockState state, BlockGetter level, BlockPos pos, Explosion explosion) {
+        return Float.MAX_VALUE;
     }
 
     @Override
@@ -110,14 +91,41 @@ public class WebstoneRemoteBlock extends DirectionalBlock implements EntityBlock
     }
 
     @Override
-    public void onRemove(BlockState pState, @NotNull Level pLevel, @NotNull BlockPos pPos, BlockState pNewState, boolean pIsMoving) {
-        if (!pState.is(pNewState.getBlock())) {
-            if (!pLevel.isClientSide) {
-                BlockEntity blockEntity = pLevel.getBlockEntity(pPos);
+    public @NotNull InteractionResult use(@NotNull BlockState state, Level level, @NotNull BlockPos pos, @NotNull Player player, @NotNull InteractionHand hand, @NotNull BlockHitResult hit) {
+        if (!level.isClientSide) {
+            if (hand == InteractionHand.MAIN_HAND && player.getItemInHand(hand).isEmpty()) {
+                BlockEntity blockEntity = level.getBlockEntity(pos);
+
                 if (blockEntity instanceof WebstoneRemoteBlockEntity) {
                     UUID blockId = ((WebstoneRemoteBlockEntity) blockEntity).getBlockId();
 
-                    Webstone.unregisterBlock(blockId);
+                    if (!player.isCrouching()) {
+                        if (WebstoneRegistry.registerBlock(blockId, (WebstoneRemoteBlockEntity) blockEntity, player, state.getValue(POWERED), state.getValue(POWER))) {
+                            player.displayClientMessage(Component.literal("Webstone block registered."), true);
+
+                            return InteractionResult.SUCCESS;
+                        }
+                    } else {
+                        if (WebstoneRegistry.setBlockState(blockId, !state.getValue(POWERED))) {
+                            return InteractionResult.SUCCESS;
+                        }
+                    }
+                }
+            }
+        }
+
+        return InteractionResult.PASS;
+    }
+
+    @Override
+    public void onRemove(BlockState state, @NotNull Level level, @NotNull BlockPos pos, BlockState newState, boolean isMoving) {
+        if (!state.is(newState.getBlock())) {
+            if (!level.isClientSide) {
+                BlockEntity blockEntity = level.getBlockEntity(pos);
+                if (blockEntity instanceof WebstoneRemoteBlockEntity) {
+                    UUID blockId = ((WebstoneRemoteBlockEntity) blockEntity).getBlockId();
+
+                    WebstoneRegistry.unregisterBlock(blockId);
                 }
             }
         }

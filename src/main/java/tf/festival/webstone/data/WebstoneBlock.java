@@ -1,4 +1,4 @@
-package tf.festival.webstone;
+package tf.festival.webstone.data;
 
 import tf.festival.webstone.block.WebstoneRemoteBlock;
 import tf.festival.webstone.blockentity.WebstoneRemoteBlockEntity;
@@ -6,11 +6,12 @@ import tf.festival.webstone.blockentity.WebstoneRemoteBlockEntity;
 import java.util.UUID;
 
 public class WebstoneBlock {
-    private UUID blockId;
+    private final UUID blockId;
     private String name;
     private boolean powered;
     private int power;
 
+    private UUID registryId;
     private UUID groupId;
 
     private transient WebstoneRemoteBlock block;
@@ -31,30 +32,57 @@ public class WebstoneBlock {
         return this.name;
     }
 
-    public void setName(String name) {
-        this.name = name;
+    public boolean setName(String name) {
+        if (!name.equals(this.name)) {
+            this.name = name;
+
+            return true;
+        }
+
+        return false;
     }
 
     public boolean isPowered() {
         return this.powered;
     }
 
-    public void setPowered(boolean powered) {
-        this.powered = powered;
+    public boolean setPowered(boolean powered) {
+        if (powered != this.powered) {
+            this.powered = powered;
 
-        if (this.blockEntity != null)
-            this.blockEntity.setPowered((powered));
+            if (this.blockEntity != null)
+                this.blockEntity.setPowered((powered));
+
+            return true;
+        }
+
+        return false;
     }
 
     public int getPower() {
         return this.power;
     }
 
-    public void setPower(int power) {
-        this.power = Math.min(Math.max(power, 0), 15);
+    public boolean setPower(int power) {
+        if (Math.min(Math.max(power, 0), 15) != this.power) {
+            this.power = Math.min(Math.max(power, 0), 15);
 
-        if (this.blockEntity != null)
-            this.blockEntity.setPower(this.power);
+            if (this.blockEntity != null)
+                this.blockEntity.setPower(this.power);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    public UUID getRegistryId() {
+        if (this.registryId != null) return this.registryId;
+        return null;
+    }
+
+    public void setRegistryId(UUID registryId) {
+        this.registryId = registryId;
     }
 
     public UUID getGroupId() {

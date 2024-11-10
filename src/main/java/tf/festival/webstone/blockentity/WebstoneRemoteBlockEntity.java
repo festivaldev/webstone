@@ -4,6 +4,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import org.jetbrains.annotations.NotNull;
+import tf.festival.webstone.WebstoneBlockEntities;
 import tf.festival.webstone.block.WebstoneRemoteBlock;
 
 import java.util.UUID;
@@ -19,10 +21,6 @@ public class WebstoneRemoteBlockEntity extends BlockEntity {
         return blockId;
     }
 
-    public boolean isPowered() {
-        return getBlockState().getValue(WebstoneRemoteBlock.POWERED);
-    }
-
     public void setPowered(boolean powered) {
         if (level != null) {
             level.setBlock(worldPosition, getBlockState().setValue(WebstoneRemoteBlock.POWERED, powered), 3);
@@ -36,7 +34,7 @@ public class WebstoneRemoteBlockEntity extends BlockEntity {
     }
 
     @Override
-    public void load(CompoundTag tag) {
+    public void load(@NotNull CompoundTag tag) {
         super.load(tag);
         if (tag.contains("BlockID")) {
             blockId = UUID.fromString(tag.getString("BlockID"));
@@ -44,7 +42,7 @@ public class WebstoneRemoteBlockEntity extends BlockEntity {
     }
 
     @Override
-    protected void saveAdditional(CompoundTag tag) {
+    protected void saveAdditional(@NotNull CompoundTag tag) {
         super.saveAdditional(tag);
         tag.putString("BlockID", blockId.toString());
     }
