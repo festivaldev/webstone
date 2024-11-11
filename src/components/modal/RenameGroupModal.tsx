@@ -10,16 +10,13 @@ import {
   UseDisclosureProps,
 } from '@nextui-org/react';
 import React from 'react';
+import { useSocket } from '../SocketProvider';
+import { useModalStore } from './ModalProvider';
 
-const RenameGroupModal = ({
-  groupId,
-  onSubmit,
-  isOpen,
-  onChange,
-}: {
-  groupId?: string;
-  onSubmit?: (blockId: string, name: string) => void;
-} & UseDisclosureProps): React.ReactNode => {
+const RenameGroupModal = ({ isOpen, onChange }: UseDisclosureProps): React.ReactNode => {
+  const { groupId } = useModalStore();
+  const { renameGroup } = useSocket();
+
   const [value, setValue] = React.useState<string>('');
 
   return (
@@ -61,7 +58,7 @@ const RenameGroupModal = ({
                   onClose();
                   setValue(() => '');
 
-                  onSubmit?.(groupId!, value);
+                  renameGroup(groupId!, value);
                 }}
                 isDisabled={!value?.length || value?.length > 64}
               >

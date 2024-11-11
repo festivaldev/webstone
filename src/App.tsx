@@ -1,143 +1,113 @@
-import { BlockGroup, ConnectionScreen, Header } from '@/components';
 import { Spinner } from '@nextui-org/react';
 import React from 'react';
-import Modals, { type ModalHandler } from './components/Modals';
-import SocketClient from './utilities/SocketClient';
+import { BlockGroup, ConnectionScreen, Header } from './components';
+import { useSocket, useSocketListeners } from './components/SocketProvider';
+import { ModalProvider } from './components/modal/ModalProvider';
 
-const App = (): React.ReactNode => {
-  const [socket, setSocket] = React.useState<SocketClient>();
+const App = () => {
+  const socket = useSocket();
+  const socketListener = useSocketListeners();
 
-  const [readyState, setReadyState] = React.useState<number>(-1);
-  const [connectionError, setConnectionError] = React.useState<string | undefined>(undefined);
-  const isConnecting = React.useMemo(() => readyState === WebSocket.CONNECTING, [readyState]);
-  const isConnected = React.useMemo(() => readyState === WebSocket.OPEN, [readyState]);
+  const [blockLists, setBlockLists] = React.useState<any>({});
 
   const [blockGroups, setBlockGroups] = React.useState<BlockGroup[] | undefined>([]);
   const [blocks, setBlocks] = React.useState<Block[] | undefined>();
-
   const ungroupedBlocks = React.useMemo<Block[]>(() => blocks?.filter((block) => !block.groupId) ?? [], [blocks]);
-  const modals = React.useRef<ModalHandler>(null);
 
   React.useEffect(() => {
-    if (!socket) {
-      const _socket = new SocketClient();
-      _socket.addEventListener('readyStateChange', (e: Event) => {
-        setReadyState(() => (e as CustomEvent).detail);
-      });
+    const onOpen = (_: Event): void => {};
 
-      _socket.addEventListener('message', (e: Event) => {
-        const { data } = e as MessageEvent;
+    const onClose = (_: Event): void => {
+      setBlockLists(() => {});
+      setBlockGroups(() => []);
+      setBlocks(() => []);
 
-        if (typeof data === 'object') {
-          switch (data.type) {
-            case 'block_groups':
-              setBlockGroups(() => data.data);
-              break;
-            case 'block_list':
-              setBlocks(() => data.data);
-              break;
-            case 'block_updated':
-              setBlocks((blocks) =>
-                blocks?.map((block) => (block.blockId === data.data.blockId ? { ...data.data } : block)),
-              );
-              break;
-            case 'group_updated':
-              setBlockGroups((blockGroups) =>
-                blockGroups?.map((blockGroup) =>
-                  blockGroup.groupId === data.data.groupId ? { ...data.data } : blockGroup,
-                ),
-              );
-              break;
+      socket.setIsSubscribed(() => false);
+    };
 
-            // #region Deprecated
-            case 'block_state':
-              setBlocks((blocks) =>
-                blocks?.map((block) =>
-                  block.blockId === data.data.blockId ? { ...block, powered: data.data.powered } : block,
-                ),
-              );
-              break;
-            case 'block_power':
-              setBlocks((blocks) =>
-                blocks?.map((block) =>
-                  block.blockId === data.data.blockId ? { ...block, power: data.data.power } : block,
-                ),
-              );
-              break;
-            case 'rename_block':
-              setBlocks((blocks) =>
-                blocks?.map((block) =>
-                  block.blockId === data.data.blockId ? { ...block, name: data.data.name } : block,
-                ),
-              );
-              break;
-            // #endregion
-            default:
-              break;
-          }
-        }
-      });
+    const onMessage = (e: Event): void => {
+      const { data } = e as MessageEvent;
+      // console.log(`IN: ${JSON.stringify(data)}`);
 
-      _socket.addEventListener('close', (e: Event) => {
-        const event = e as CloseEvent;
+      switch (data.type) {
+        case 'WELCOME':
+          socket.send('AUTH_REQ', {
+            passphrase: socket.store.getState().socketPassphrase,
+          });
+          break;
+        case 'UNSUBSCRIBE':
+          socket.setIsSubscribed(() => false);
+          setBlocks(() => []);
+          setBlockGroups(() => []);
+          break;
+        case 'BLOCK_LISTS':
+          setBlockLists(() => data.payload.blockLists);
+          break;
+        case 'BLOCKS':
+          setBlocks(() => data.payload.blocks);
+          break;
+        case 'BLOCK_GROUPS':
+          setBlockGroups(() => data.payload.blockGroups);
+          break;
+        case 'BLOCK_UPDATE':
+          setBlocks((blocks) =>
+            blocks?.map((block) => (block.blockId === data.payload.blockId ? { ...data.payload } : block)),
+          );
+          break;
+        case 'BLOCK_GROUP_UPDATE':
+          setBlockGroups((blockGroups) =>
+            blockGroups?.map((blockGroup) =>
+              blockGroup.groupId === data.payload.groupId ? { ...data.payload } : blockGroup,
+            ),
+          );
+          break;
+        default:
+          break;
+      }
+    };
 
-        switch (event.code) {
-          case 1000:
-            break;
-          case 1001:
-            setConnectionError(() => 'Connection closed by server.');
-            break;
-          case 1006:
-            setConnectionError(() => `Connection to ${_socket.connectionUri} failed.`);
-            break;
-          default:
-            break;
-        }
+    const onError = (e: Event): void => {
+      const { message } = e as ErrorEvent;
+      console.log(`ERROR: ${message}`);
+    };
 
-        setBlockGroups(() => undefined);
-        setBlocks(() => undefined);
-      });
+    const onSend = (e: Event): void => {
+      const { detail } = e as CustomEvent;
+      console.log(`OUT: ${JSON.stringify(detail)}`);
+    };
 
-      setSocket(() => _socket);
-    }
+    socketListener.addEventListener('open', onOpen);
+    socketListener.addEventListener('close', onClose);
+    socketListener.addEventListener('message', onMessage);
+    socketListener.addEventListener('error', onError);
+    socketListener.addEventListener('send', onSend);
+
+    return () => {
+      socketListener.removeEventListener('open', onOpen);
+      socketListener.removeEventListener('close', onClose);
+      socketListener.removeEventListener('message', onMessage);
+      socketListener.removeEventListener('error', onError);
+      socketListener.removeEventListener('send', onSend);
+    };
   }, []);
 
   return (
-    <>
+    <ModalProvider blocks={blocks} blockGroups={blockGroups}>
       <div className="p-4 pt-20">
-        <Header
-          isConnected={isConnected}
-          onCreateGroup={() => modals.current?.openCreateGroupModal()}
-          onReorderGroups={() => modals.current?.openChangeGroupOrderModal()}
-          onDisconnect={() => {
-            socket?.disconnect();
-          }}
-        />
+        <Header blockGroups={blockGroups} />
 
-        {!isConnected && (
-          <ConnectionScreen
-            isConnecting={isConnecting}
-            connectionError={connectionError}
-            onConnect={(hostname, port, passphrase, useSecureSocket) => {
-              setConnectionError(() => undefined);
-              socket?.connect(hostname, port, passphrase, useSecureSocket);
-            }}
-            onCancelConnect={() => {
-              socket?.disconnect();
-            }}
-          />
-        )}
+        {!socket.isSubscribed && <ConnectionScreen blockLists={blockLists} />}
 
-        {isConnected && (
+        {socket.isSubscribed && (
           <>
             {(!blockGroups || !blocks) && (
-              <div className="absolute left-0 top-0 flex h-full w-full flex-col items-center justify-center space-y-4">
+              <div className="absolute bottom-0 left-0 right-0 top-0 flex flex-col items-center justify-center">
                 <Spinner size="lg" />
               </div>
             )}
 
             {blockGroups?.length === 0 && blocks?.length === 0 && (
-              <div className="absolute left-0 top-0 flex h-full w-full flex-col items-center justify-center space-y-4">
+              <div className="absolute left-0 top-0 flex h-full w-full flex-col items-center justify-center">
                 <p className="text-center text-xl text-gray-500">
                   No Webstone blocks registered.
                   <br />
@@ -149,18 +119,7 @@ const App = (): React.ReactNode => {
             )}
 
             <div className="space-y-4">
-              {ungroupedBlocks && ungroupedBlocks.length > 0 && (
-                <BlockGroup
-                  blocks={ungroupedBlocks}
-                  onBlockStateChanged={(blockId, powered) => socket?.setBlockState(blockId, powered)}
-                  onBlockPowerChanged={(blockId, power) => socket?.setBlockPower(blockId, power)}
-                  onBlockRename={(blockId) => modals.current?.openRenameBlockModal(blockId)}
-                  onBlockGroupChange={(blockId) => modals.current?.openChangeBlockGroupModal(blockId)}
-                  onBlockDelete={(blockId) => modals.current?.openDeleteBlockModal(blockId)}
-                  onGroupRename={(groupId) => modals.current?.openRenameGroupModal(groupId)}
-                  onGroupDelete={(groupId) => modals.current?.openDeleteGroupModal(groupId)}
-                />
-              )}
+              {ungroupedBlocks && ungroupedBlocks.length > 0 && <BlockGroup blocks={ungroupedBlocks} />}
 
               {blockGroups?.map((blockGroup) => (
                 <BlockGroup
@@ -171,23 +130,13 @@ const App = (): React.ReactNode => {
                       .map((id) => blocks?.find((block) => id === block.blockId))
                       .filter(Boolean) as Block[]) ?? []
                   }
-                  onBlockStateChanged={(blockId, powered) => socket?.setBlockState(blockId, powered)}
-                  onBlockPowerChanged={(blockId, power) => socket?.setBlockPower(blockId, power)}
-                  onBlockRename={(blockId) => modals.current?.openRenameBlockModal(blockId)}
-                  onBlockGroupChange={(blockId) => modals.current?.openChangeBlockGroupModal(blockId)}
-                  onBlockDelete={(blockId) => modals.current?.openDeleteBlockModal(blockId)}
-                  onGroupRename={(groupId) => modals.current?.openRenameGroupModal(groupId)}
-                  onReorderBlocks={(groupId) => modals.current?.openChangeBlockOrderModal(groupId)}
-                  onGroupDelete={(groupId) => modals.current?.openDeleteGroupModal(groupId)}
                 />
               ))}
             </div>
           </>
         )}
       </div>
-
-      {blockGroups && blocks && <Modals ref={modals} socket={socket} blockGroups={blockGroups} blocks={blocks} />}
-    </>
+    </ModalProvider>
   );
 };
 

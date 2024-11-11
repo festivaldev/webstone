@@ -11,3 +11,10 @@ interface Block {
   powered: boolean;
   power: number;
 }
+
+interface SocketConnectionData {
+  hostname: string;
+  port: string;
+  passphrase?: string;
+  useSecureSocket?: boolean;
+}

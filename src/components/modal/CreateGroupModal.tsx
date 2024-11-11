@@ -10,14 +10,11 @@ import {
   UseDisclosureProps,
 } from '@nextui-org/react';
 import React from 'react';
+import { useSocket } from '../SocketProvider';
 
-const CreateGroupModal = ({
-  onSubmit,
-  isOpen,
-  onChange,
-}: {
-  onSubmit?: (name: string) => void;
-} & UseDisclosureProps): React.ReactNode => {
+const CreateGroupModal = ({ isOpen, onChange }: UseDisclosureProps): React.ReactNode => {
+  const { createGroup } = useSocket();
+
   const [value, setValue] = React.useState<string>('');
 
   return (
@@ -59,7 +56,7 @@ const CreateGroupModal = ({
                   onClose();
                   setValue(() => '');
 
-                  onSubmit?.(value);
+                  createGroup(value);
                 }}
                 isDisabled={!value?.length || value?.length > 64}
               >

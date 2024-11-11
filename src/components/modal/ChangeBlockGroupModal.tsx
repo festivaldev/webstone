@@ -10,21 +10,25 @@ import {
   RadioGroup,
   UseDisclosureProps,
 } from '@nextui-org/react';
-import React from 'react';
+import React, { useMemo } from 'react';
+import { useSocket } from '../SocketProvider';
+import { useModalStore } from './ModalProvider';
 
 const ChangeBlockGroupModal = ({
   groups = [],
-  blockId,
-  groupId,
-  onSubmit,
   isOpen,
   onChange,
 }: {
   groups?: BlockGroup[];
-  blockId?: string;
-  groupId?: string;
-  onSubmit?: (blockId: string, groupId: string) => void;
 } & UseDisclosureProps): React.ReactNode => {
+  const { blockId } = useModalStore();
+  const { changeBlockGroup } = useSocket();
+
+  const groupId = useMemo(
+    () => groups?.find((group) => group.blockIds.includes(blockId!))?.groupId! || null,
+    [blockId],
+  );
+
   const [value, setValue] = React.useState<string>('');
 
   React.useEffect(() => {
@@ -68,7 +72,7 @@ const ChangeBlockGroupModal = ({
                 color="primary"
                 isDisabled={value === groupId || (value === '' && groupId === null)}
                 onPress={() => {
-                  onSubmit?.(blockId!, value);
+                  changeBlockGroup(blockId!, value);
                   onClose();
                 }}
               >

@@ -10,16 +10,13 @@ import {
   UseDisclosureProps,
 } from '@nextui-org/react';
 import React from 'react';
+import { useSocket } from '../SocketProvider';
+import { useModalStore } from './ModalProvider';
 
-const RenameBlockModal = ({
-  blockId,
-  onSubmit,
-  isOpen,
-  onChange,
-}: {
-  blockId?: string;
-  onSubmit?: (blockId: string, name: string) => void;
-} & UseDisclosureProps): React.ReactNode => {
+const RenameBlockModal = ({ isOpen, onChange }: UseDisclosureProps): React.ReactNode => {
+  const { blockId } = useModalStore();
+  const { renameBlock } = useSocket();
+
   const [value, setValue] = React.useState<string>('');
 
   return (
@@ -61,7 +58,7 @@ const RenameBlockModal = ({
                   onClose();
                   setValue(() => '');
 
-                  onSubmit?.(blockId!, value);
+                  renameBlock(blockId!, value);
                 }}
                 isDisabled={!value?.length || value?.length > 64}
               >

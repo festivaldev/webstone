@@ -1,0 +1,23 @@
+{
+  "eslint.quiet": true,
+  "files.associations": {
+    "*.css": "tailwindcss"
+  },
+  "typescript.preferences.quoteStyle": "single",
+  "[typescript][typescriptreact][json][jsonc]": {
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "always"
+    },
+    "editor.detectIndentation": false,
+    "editor.formatOnPaste": false,
+    "editor.formatOnSave": true,
+    "editor.insertSpaces": true,
+    "editor.tabSize": 2,
+    "editor.useTabStops": false,
+    "files.insertFinalNewline": true
+  },
+  "[typescriptreact][javascriptreact]": {
+    "javascript.preferences.jsxAttributeCompletionStyle": "none",
+    "typescript.preferences.jsxAttributeCompletionStyle": "none"
+  }
+}

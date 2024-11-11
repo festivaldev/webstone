@@ -3,7 +3,13 @@
 @tailwind utilities;
 
 @layer base {
-	a[role="menuitem"], li[role="menuitem"] {
-		@apply !duration-0;
-	}
+  html,
+  body {
+    @apply min-h-screen dark:bg-slate-950 dark:text-white;
+  }
+
+  a[role='menuitem'],
+  li[role='menuitem'] {
+    @apply !duration-0;
+  }
 }
