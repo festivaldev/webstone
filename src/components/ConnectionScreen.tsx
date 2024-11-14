@@ -50,10 +50,18 @@ const ConnectionScreen = ({ blockLists }: { blockLists: { [key: string]: string 
       }
     };
 
+    const onError = (e: Event): void => {
+      const { message } = e as ErrorEvent;
+
+      setErrorMessage(() => message ?? 'Failed to connect to WebSocket server.');
+    };
+
     socketListener.addEventListener('message', onMessage);
+    socketListener.addEventListener('error', onError);
 
     return () => {
       socketListener.removeEventListener('message', onMessage);
+      socketListener.removeEventListener('error', onError);
     };
   }, []);
 
@@ -63,6 +71,7 @@ const ConnectionScreen = ({ blockLists }: { blockLists: { [key: string]: string 
         <form
           onSubmit={(e) => {
             e.preventDefault();
+            setErrorMessage(() => undefined);
             socket.connect();
           }}
           className="space-y-4"
@@ -170,7 +179,9 @@ const ConnectionScreen = ({ blockLists }: { blockLists: { [key: string]: string 
             </Tooltip>
           </div>
 
-          {!socket.isConnected && errorMessage && <p className="text-center text-xs text-danger">{errorMessage}</p>}
+          {!socket.isConnecting && !socket.isConnected && errorMessage && (
+            <p className="text-center text-xs text-danger">{errorMessage}</p>
+          )}
         </form>
 
         <hr className="border-slate-100/20" />
