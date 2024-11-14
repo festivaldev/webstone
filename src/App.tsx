@@ -71,23 +71,16 @@ const App = () => {
       console.log(`ERROR: ${message}`);
     };
 
-    const onSend = (e: Event): void => {
-      const { detail } = e as CustomEvent;
-      console.log(`OUT: ${JSON.stringify(detail)}`);
-    };
-
     socketListener.addEventListener('open', onOpen);
     socketListener.addEventListener('close', onClose);
     socketListener.addEventListener('message', onMessage);
     socketListener.addEventListener('error', onError);
-    socketListener.addEventListener('send', onSend);
 
     return () => {
       socketListener.removeEventListener('open', onOpen);
       socketListener.removeEventListener('close', onClose);
       socketListener.removeEventListener('message', onMessage);
       socketListener.removeEventListener('error', onError);
-      socketListener.removeEventListener('send', onSend);
     };
   }, []);
 
